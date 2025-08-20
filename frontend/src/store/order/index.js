@@ -59,6 +59,20 @@ export const updateOrder = createAsyncThunk(
   }
 );
 
+// Thunk to fetch paginated orders with skip and limit-Armaan Siddiqui
+export const fetchPaginatedOrders = createAsyncThunk(
+  'order/fetchPaginatedOrders',
+  async ({ skip, limit }, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/allordersPaginated?skip=${skip}&limit=${limit}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching paginated orders:', error);
+      return rejectWithValue('Failed to fetch paginated orders');
+    }
+  }
+);
+
 // Creating a slice for order
 const orderSlice = createSlice({
   name: 'order',
@@ -66,6 +80,8 @@ const orderSlice = createSlice({
     orderDetails: null,
     allOrders: [], // Store all fetched orders
     filteredOrders: [], // Store orders filtered by date
+    paginatedOrders: [], // State for storing paginated data-Armaan Siddiqui
+    totalOrders: 0, // New state for storing the total count
     loading: false,
     error: null, // For capturing errors
     status: 'idle', // New field to track order status
@@ -76,6 +92,8 @@ const orderSlice = createSlice({
       state.orderDetails = null;
       state.allOrders = [];
       state.filteredOrders = [];
+      state.paginatedOrders = [];
+      state.totalOrders = 0;
       state.loading = false;
       state.error = null;
       state.status = 'idle';
@@ -150,6 +168,22 @@ const orderSlice = createSlice({
         state.status = 'success';
       })
       .addCase(updateOrder.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.status = 'failed';
+      })
+      // Fetch Paginated Orders-Armaan Siddiqui
+      .addCase(fetchPaginatedOrders.pending, (state) => {
+        state.loading = true;
+        state.status = 'pending';
+      })
+      .addCase(fetchPaginatedOrders.fulfilled, (state, action) => {
+        state.paginatedOrders = action.payload.orders;
+        state.totalOrders = action.payload.totalOrders;
+        state.loading = false;
+        state.status = 'success';
+      })
+      .addCase(fetchPaginatedOrders.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
         state.status = 'failed';

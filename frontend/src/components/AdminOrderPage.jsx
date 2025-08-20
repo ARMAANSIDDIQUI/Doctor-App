@@ -4,49 +4,50 @@ import Modal from "./model";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
-import { fetchAllOrders, updateOrder } from "../store/order";
+import { fetchPaginatedOrders, updateOrder } from "../store/order"; // Updated thunk import
 import { useDispatch, useSelector } from "react-redux";
 import ModalEditForm from "./ModalEditForm";
-import api from '@/common/axios';;
+import api from '@/common/axios';
 import { DateRangePicker } from "react-date-range";
 import { enGB } from "date-fns/locale";
-
 
 // imports for print report button navigation - Armaan Siddiqui
 import { useNavigate } from "react-router-dom";
 import PrintReportModal from "./PrintReportModal";
 
-
 const AdminOrdersPage = () => {
-  
-
-  // added hooks for print modal- Armaan Siddiqui
+  // Added hooks for print modal- Armaan Siddiqui
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printOrder, setPrintOrder] = useState(null);
   const [printDoctor, setPrintDoctor] = useState(null);
 
-
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [orders, setOrders] = useState([]);
-  const [showDateRange, setShowDateRange] = useState(false); // New s
+  const [showDateRange, setShowDateRange] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [editOrderData, setEditOrderData] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [doctors, setDoctors] = useState([]);
-  const { allOrders, loading: ordersLoading } = useSelector((state) => state.order);
+  
+  // New state for pagination-Armaan Siddiqui
+  const [currentPage, setCurrentPage] = useState(1);
+  const ordersPerPage = 100;
+
+  // Get paginated orders and total count from Redux store
+  const { paginatedOrders, totalOrders, loading: ordersLoading } = useSelector((state) => state.order);
+  
   const [selectedDateRange, setSelectedDateRange] = useState({
     startDate: new Date(),
     endDate: new Date(),
     key: "selection",
   });
   const [selectedOrders, setSelectedOrders] = useState([]);
-  const [filterApplied, setFilterApplied] = useState(false); // New state to track filter application
+  const [filterApplied, setFilterApplied] = useState(false);
   const [selectAll, setSelectAll] = useState(false);
 
-  // Handle select/deselect all functionality
-
+  // Calculate total pages based on the total count from the server-Armaan Siddiqui
+  const totalPages = Math.ceil(totalOrders / ordersPerPage);
 
   const resetDateFilter = () => {
     setSelectedDateRange({
@@ -54,10 +55,9 @@ const AdminOrdersPage = () => {
       endDate: new Date(),
       key: "selection",
     });
-    setFilterApplied(false); // Reset the filter application state
+    setFilterApplied(false);
     setShowDateRange(false);
   };
-  
 
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -67,46 +67,41 @@ const AdminOrdersPage = () => {
       } catch (error) {
         console.error("Error fetching doctors:", error);
       }
-
     };
 
-    dispatch(fetchAllOrders());
+    // Dispatch the paginated thunk on initial load and when currentPage changes-Armaan Siddiqui
+    dispatch(fetchPaginatedOrders({ 
+      skip: (currentPage - 1) * ordersPerPage, 
+      limit: ordersPerPage 
+    }));
     fetchDoctors();
-  }, [dispatch]);
+  }, [dispatch, currentPage]);
 
   const handleToggleDateRange = () => {
-    setShowDateRange((prevState) => !prevState); // Toggle DateRange visibility
+    setShowDateRange((prevState) => !prevState);
   };
 
   useEffect(() => {
-    console.log("Updated editOrderData", editOrderData); // This will log the updated data when it's changed
-  }, [editOrderData]); // Track when editOrderData changes
+    console.log("Updated editOrderData", editOrderData);
+  }, [editOrderData]);
 
   const handleEditSubmit = async (formData) => {
     try {
-      const orderId = editOrderData._id; // Get the current order ID
-      const updatedData = formData; // The updated data from the form
+      const orderId = editOrderData._id;
+      const updatedData = formData;
 
-      // Dispatch the updateOrder thunk to update the order in the server
       const action = await dispatch(updateOrder({ orderId, updatedData }));
 
-      // Log the response for debugging
       if (action.type === "order/updateOrder/fulfilled") {
         console.log("Order updated successfully", action.payload);
-
-        // Update local state to reflect the updated order
-        const updatedOrder = action.payload; // assuming the response contains the updated order
-        setOrders((prevOrders) =>
-          prevOrders.map((order) =>
-            order._id === updatedOrder._id ? updatedOrder : order
-          )
-        );
-
-        // Close the modal after the update
         setEditOrderData(null);
+        // Re-fetch the orders to ensure data consistency after an update
+        dispatch(fetchPaginatedOrders({ 
+          skip: (currentPage - 1) * ordersPerPage, 
+          limit: ordersPerPage 
+        }));
       }
     } catch (error) {
-      // Handle any errors
       console.error("Error updating order", error);
     }
   };
@@ -116,54 +111,47 @@ const AdminOrdersPage = () => {
   };
 
   const handleEditOrder = (order) => {
-    setEditOrderData(order); // Open the modal with the selected order's data
+    setEditOrderData(order);
   };
 
   const handleDeleteOrder = async (orderId) => {
-  const confirmation = window.confirm("Are you sure you want to delete this order?");
-  if (confirmation) {
-    try {
-      const response = await api.delete(`/orders/${orderId}`);
-
-      if (response.status === 200 || response.status === 204) {
-        alert("Order deleted successfully!");
-        setOrders(orders.filter((order) => order._id !== orderId));
-        // dispatch(fetchAllOrders());
-        window.location.reload(); // Reload the page after deleting the order
-      } else {
-        alert("Failed to delete the order.");
-      }
-    } catch (error) {
-      console.error("Error deleting the order:", error);
-      alert("Something went wrong while deleting.");
-    }
-  }
-};
-  
-const handleDeleteSelected = async () => {
-  const confirmation = window.confirm("Are you sure you want to delete the selected orders?");
-  if (confirmation) {
-    try {
-      for (let orderId of selectedOrders) {
+    if (window.confirm("Are you sure you want to delete this order?")) {
+      try {
         const response = await api.delete(`/orders/${orderId}`);
-
         if (response.status === 200 || response.status === 204) {
-          setOrders((prevOrders) => prevOrders.filter((order) => order._id !== orderId));
+          window.alert("Order deleted successfully!");
+          // Re-fetch the orders after deletion
+          dispatch(fetchPaginatedOrders({ 
+            skip: (currentPage - 1) * ordersPerPage, 
+            limit: ordersPerPage 
+          }));
+        } else {
+          window.alert("Failed to delete the order.");
         }
+      } catch (error) {
+        console.error("Error deleting the order:", error);
+        window.alert("Something went wrong while deleting.");
       }
-
-      alert("Selected orders deleted successfully!");
-      resetDateFilter();
-      // dispatch(fetchAllOrders());
-      window.location.reload(); // Reload the page after deleting the selected orders
-    } catch (error) {
-      console.error("Error deleting selected orders:", error);
-      alert("Something went wrong while deleting selected orders.");
     }
-  }
-};
+  };
   
-
+  const handleDeleteSelected = async () => {
+    if (window.confirm("Are you sure you want to delete the selected orders?")) {
+      try {
+        await Promise.all(selectedOrders.map(orderId => api.delete(`/orders/${orderId}`)));
+        window.alert("Selected orders deleted successfully!");
+        setSelectedOrders([]);
+        dispatch(fetchPaginatedOrders({ 
+          skip: (currentPage - 1) * ordersPerPage, 
+          limit: ordersPerPage 
+        }));
+      } catch (error) {
+        console.error("Error deleting selected orders:", error);
+        window.alert("Something went wrong while deleting selected orders.");
+      }
+    }
+  };
+  
   const handleSelectOrder = (orderId) => {
     setSelectedOrders((prevSelectedOrders) => {
       if (prevSelectedOrders.includes(orderId)) {
@@ -175,10 +163,10 @@ const handleDeleteSelected = async () => {
 
   const handleApplyFilter = () => {
     setFilterApplied(true);
-    setShowDateRange(!showDateRange);
+    setShowDateRange(false);
   };
 
-  const filteredOrders = allOrders
+  const filteredOrders = paginatedOrders
     .filter((order) => {
       const doctor = doctors.find((doctor) => doctor._id === order.referredBy);
       return (
@@ -194,52 +182,57 @@ const handleDeleteSelected = async () => {
           orderDate >= selectedDateRange.startDate && orderDate <= selectedDateRange.endDate
         );
       }
-      return true; // No date range filter applied, show all orders
+      return true;
     });
 
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 300) {
-        setShowScrollButton(true); // Show the button after scrolling 300px
+        setShowScrollButton(true);
       } else {
         setShowScrollButton(false);
       }
     };
 
     window.addEventListener('scroll', handleScroll);
-
-    // Cleanup the event listener when component unmounts
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Scroll to top function
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
-      behavior: "smooth", // Smooth scrolling effect
+      behavior: "smooth",
     });
   };
 
   const handleSelectAll = () => {
     if (selectAll) {
-      // Deselect all filtered orders
-      setSelectAll(false);
-      filteredOrders.forEach((order) => handleSelectOrder(order._id, false));
+      setSelectedOrders([]);
     } else {
-      // Select all filtered orders
-      setSelectAll(true);
-      filteredOrders.forEach((order) => handleSelectOrder(order._id, true));
+      setSelectedOrders(filteredOrders.map(order => order._id));
     }
   };
 
   useEffect(() => {
-    // Update the "Select All" checkbox if all or none of the filtered orders are selected
     const allSelected =
       filteredOrders.length > 0 &&
       filteredOrders.every((order) => selectedOrders.includes(order._id));
     setSelectAll(allSelected);
   }, [filteredOrders, selectedOrders]);
 
+
+  // Helper FUnctions-Armaan Siddiqui
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prevPage => prevPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prevPage => prevPage - 1);
+    }
+  };
 
   return (
     <div className="flex flex-col p-2 sm:p-8 space-y-4 sm:space-y-8 mt-16 bg-gray-50 min-h-screen">
@@ -417,6 +410,25 @@ const handleDeleteSelected = async () => {
             </table>
           </div>
         </div>
+        
+        {/* Pagination Controls -Armaan Siddiqui*/}
+        <div className="flex justify-evenly items-center mt-6">
+          <Button
+            onClick={handlePrevPage}
+            disabled={currentPage === 1}
+            className="bg-gray-300 text-gray-800 disabled:opacity-50"
+          >
+            Previous
+          </Button>
+          <span>Page {currentPage} of {totalPages}</span>
+          <Button
+            onClick={handleNextPage}
+            disabled={currentPage >= totalPages}
+            className="bg-gray-300 text-gray-800 disabled:opacity-50"
+          >
+            Next
+          </Button>
+        </div>
       </div>
 
       {/* Modals */}
@@ -459,7 +471,6 @@ const handleDeleteSelected = async () => {
           doctorDetails={printDoctor}
         />
       )}
-
     </div>
   );
 };

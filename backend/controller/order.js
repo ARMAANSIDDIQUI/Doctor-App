@@ -100,10 +100,6 @@ const PlaceOrder = async (req, res) => {
   }
 };
 
-
-
-
-
 // FetchOrder API to retrieve an order by ID
 const fetchOrder = async (req, res) => {
   try {
@@ -210,7 +206,6 @@ const EditOrder = async (req, res) => {
   }
 };
 
-
 const DeleteOrder = async (req, res) => {
   try {
     const { orderId } = req.params; // Order ID is passed in the URL parameters
@@ -232,6 +227,41 @@ const DeleteOrder = async (req, res) => {
     console.error('Error deleting order:', error);
     res.status(500).json({
       message: 'Error deleting order',
+      error: error.message,
+    });
+  }
+};
+
+/**-Armaan Siddiqui
+ * @description: Fetches a paginated list of orders.
+ * @param {object} req - The request object.
+ * @param {object} res - The response object.
+ * @returns {object} - JSON response containing paginated orders and total count.
+ */
+const fetchPaginatedOrders = async (req, res) => {
+  try {
+    // Extract skip and limit from query parameters with default values
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = parseInt(req.query.limit) || 100;
+
+    // Get the total number of orders in the collection
+    const totalOrders = await Order.countDocuments();
+
+    // Fetch the orders for the current page
+    const orders = await Order.find()
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }); // Optional: sort by creation date descending
+
+    res.status(200).json({
+      message: 'Orders fetched successfully with pagination.',
+      orders: orders,
+      totalOrders: totalOrders
+    });
+  } catch (error) {
+    console.error('Error fetching paginated orders:', error);
+    res.status(500).json({
+      message: 'Error fetching paginated orders.',
       error: error.message,
     });
   }
@@ -259,28 +289,6 @@ const fetchAllOrdersFromDB = async () => {
     throw error; // Propagate the error to the caller
   }
 };
-
-// const fetchAllOrdersFromDB = async () => {
-//   try {
-//     // Get the current timestamp and the timestamp for 15 minutes ago
-//     const now = new Date();
-//     const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000); // 15 minutes in milliseconds
-
-//     // Fetch all orders created in the last 15 minutes
-//     const orders = await Order.find({
-//       createdAt: { $gte: fifteenMinutesAgo, $lte: now },
-//     });
-
-//     if (orders.length === 0) {
-//       throw new Error("No orders found in the last 15 minutes");
-//     }
-
-//     return orders;
-//   } catch (error) {
-//     console.error("Error fetching orders created in the last 15 minutes:", error);
-//     throw error; // Propagate the error to the caller
-//   }
-// };
 
 const fetchFilteredOrders = async (req, res) => {
   try {
@@ -328,6 +336,4 @@ const fetchFilteredOrders = async (req, res) => {
   }
 };
 
-
-
-module.exports = { PlaceOrder, fetchOrder, fetchAllOrder, EditOrder, DeleteOrder, fetchAllOrdersFromDB, fetchFilteredOrders };
+module.exports = { PlaceOrder, fetchOrder, fetchPaginatedOrders, fetchAllOrder, EditOrder, DeleteOrder, fetchAllOrdersFromDB, fetchFilteredOrders };

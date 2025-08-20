@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchAllOrders, fetchOrdersByDate } from "../store/order"; // import fetchOrdersByDate
+import { fetchPaginatedOrders, fetchOrdersByDate, fetchAllOrders } from "../store/order"; // Added fetchOrdersByDate
 import { fetchCategories } from "../store/categories";
 import { DateRangePicker } from "react-date-range";// Import date-range picker
 import * as XLSX from "xlsx"; // Import xlsx library
@@ -16,11 +16,10 @@ import api from "@/common/axios";
 const MonthlyReport = () => {
   const dispatch = useDispatch();
   const [groupedData, setGroupedData] = useState([]);
-  const [records, setRecords] = useState([]);  // Store records
-const [message, setMessage] = useState("");   // Store message
-
+  const [records, setRecords] = useState([]); 
+  const [message, setMessage] = useState(""); 
   const [categories, setCategories] = useState([]);
-    const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [doctors, setDoctors] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchQueryDoc, setSearchQueryDoc] = useState("");
@@ -32,121 +31,106 @@ const [message, setMessage] = useState("");   // Store message
     },
   ]);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  // Now using filteredOrders to hold the data after applying any filter-Armaan Siddiqui
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  
+  // New states for pagination-Armaan Siddiqui
+  const [currentPage, setCurrentPage] = useState(1);
+  const ordersPerPage = 100;
 
-  const { allOrders } = useSelector((state) => state.order);
+  // Get paginated orders and total count from Redux store
+  const { paginatedOrders, totalOrders, loading: ordersLoading, filteredOrders: ordersByDateRange } = useSelector((state) => state.order);
 
+  // Calculate total pages based on the total count from the server
+  const totalPages = Math.ceil(totalOrders / ordersPerPage);
 
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 300) {
-        setShowScrollButton(true); // Show the button after scrolling 300px
+        setShowScrollButton(true);
       } else {
         setShowScrollButton(false);
       }
     };
-
     window.addEventListener('scroll', handleScroll);
-    
-    // Cleanup the event listener when component unmounts
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Scroll to top function
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
-      behavior: "smooth", // Smooth scrolling effect
+      behavior: "smooth",
     });
   };
 
-  // Fetch all orders and categories when the component mounts
-useEffect(() => {
-  dispatch(fetchAllOrders());
-  dispatch(fetchCategories()).then((res) => setCategories(res.payload));
-
-  const fetchDoctors = async () => {
-    try {
-      const response = await api.get("/doctors");
-      setDoctors(response.data.doctors || []);
-    } catch (error) {
-      console.error("Error fetching doctors:", error);
-    }
-  };
-
-  fetchDoctors();
-}, [dispatch]);
-
-  // Initially set the filtered orders to all orders
+  // Fetch paginated orders on component and when currentPage changes-Armaan Siddiqui
   useEffect(() => {
-    setFilteredOrders(allOrders);
-  }, [allOrders]);
+    dispatch(fetchPaginatedOrders({ 
+      skip: (currentPage - 1) * ordersPerPage, 
+      limit: ordersPerPage 
+    }));
+    
+    const fetchDoctors = async () => {
+      try {
+        const response = await api.get("/doctors");
+        setDoctors(response.data.doctors || []);
+      } catch (error) {
+        console.error("Error fetching doctors:", error);
+      }
+    };
+    fetchDoctors();
+    dispatch(fetchCategories()).then((res) => setCategories(res.payload));
+
+  }, [dispatch, currentPage]);
+
+  // Initially set the filtered orders to paginated orders-Armaan Siddiqui
+  useEffect(() => {
+    setFilteredOrders(paginatedOrders);
+  }, [paginatedOrders]);
+
+  // Update filtered orders when ordersByDateRange changes (from applyDateFilter)-Armaan Siddiqui
+  useEffect(() => {
+    if (ordersByDateRange.length) {
+      setFilteredOrders(ordersByDateRange);
+    }
+  }, [ordersByDateRange]);
 
   const filteredDoctors = doctors.filter((doctor) =>
     doctor.name.toLowerCase().includes(searchQueryDoc.toLowerCase())
   );
 
-  // Apply date range filter and dispatch action to fetch orders within that range
   const applyDateFilter = () => {
     const { startDate, endDate } = dateRange[0];
-    console.log(selectedDoctor);
-  
-    // Ensure the date range is treated as full days by setting hours to 00:00:00
-    const normalizedStartDate = new Date(startDate).setHours(0, 0, 0, 0);
-    const normalizedEndDate = new Date(endDate).setHours(23, 59, 59, 999); // end of the day
-  
-    // Filter orders based on createdAt date and selectedDoctor (if any)
-    const filteredByDateAndDoctor = allOrders.filter((order) => {
-      const orderDate = new Date(order.createdAt).setHours(0, 0, 0, 0); // Normalize to full day
-      const isDateInRange = orderDate >= normalizedStartDate && orderDate <= normalizedEndDate;
-      const isDoctorMatched = selectedDoctor ? order.referredBy === selectedDoctor : true; // Filter by doctor if selectedDoctor exists
-  
-      return isDateInRange && isDoctorMatched; // Return only orders that match both criteria
-    });
-  
-    // Update filtered orders
-    setFilteredOrders(filteredByDateAndDoctor);
-  
-    // If no records found after filtering, show the "No records found" message
-    if (filteredByDateAndDoctor.length === 0) {
-      setMessage("No records found for this date range and doctor.");
-    } else {
-      setMessage(""); // Clear any previous message
-    }
-  
-    setShowDatePicker(!showDatePicker); // Close the date picker
+    const normalizedStartDate = startDate.toISOString();
+    const normalizedEndDate = endDate.toISOString();
+
+    // Dispatch the thunk to fetch orders by date from the server
+    dispatch(fetchOrdersByDate({ startDate: normalizedStartDate, endDate: normalizedEndDate }));
+    
+    setMessage("");
+    setShowDatePicker(false);
   };
-  
-  
-  // Handle single date change (e.g., when selecting a specific date)
+
   const handleDateChange = (selectedDate) => {
-    // Clear previous data
-    setFilteredOrders([]); // Reset the records
-    setMessage("");  // Clear any previous message
-  
-    // Convert selectedDate to a date object and normalize
+    setFilteredOrders([]);
+    setMessage("");
     const normalizedSelectedDate = new Date(selectedDate).setHours(0, 0, 0, 0);
-  
-    // Filter orders for the selected date
     const dataForSelectedDate = groupedData.filter(order => {
       const orderDate = new Date(order.createdAt).setHours(0, 0, 0, 0);
       return orderDate === normalizedSelectedDate;
     });
-  
     if (dataForSelectedDate.length > 0) {
-      setFilteredOrders(dataForSelectedDate);  // Update records with the filtered data
+      setFilteredOrders(dataForSelectedDate);
     } else {
       setMessage("No records found for this date.");
     }
   };
-  
 
 
-
-  // Reset the date filter and show all orders again
   const resetDateFilter = () => {
-    setFilteredOrders(allOrders);
+    setFilteredOrders(paginatedOrders);
     setDateRange([
       {
         startDate: new Date(),
@@ -154,11 +138,10 @@ useEffect(() => {
         key: "selection",
       },
     ]);
-    setMessage("")
+    setMessage("");
     setShowDatePicker(!showDatePicker);
   };
-
-  // Update the groupedData whenever filteredOrders change or the date range is applied
+  
   useEffect(() => {
     if (filteredOrders.length) {
       const groupOrdersByDoctor = () => {
@@ -168,13 +151,11 @@ useEffect(() => {
             (order.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
               (doctor &&
                 (doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  doctor.phoneNo.toString().includes(searchQuery))) || // Convert phoneNo to a string
+                  doctor.phoneNo.toString().includes(searchQuery))) ||
               order.serialNo.toLowerCase().includes(searchQuery.toLowerCase())) &&
-            order.referredBy !== 0 && // Exclude orders with referredBy set to 0
-            order.referredBy !== null // Exclude orders with referredBy as null or none
+            order.referredBy !== 0 &&
+            order.referredBy !== null
           );
-
-
         });
 
         const grouped = filteredOrdersData.reduce((acc, order) => {
@@ -188,42 +169,33 @@ useEffect(() => {
           doctor: doctors.find((doc) => doc._id === id) || {},
           orders: grouped[id],
         }));
-
         setGroupedData(validGroupedData);
       };
-
       groupOrdersByDoctor();
     }
-  }, [filteredOrders, doctors, searchQuery]); // Re-run this effect when filteredOrders changes
+  }, [filteredOrders, doctors, searchQuery]);
 
   // Download the grouped data as an Excel file
   const downloadExcel = () => {
     const excelData = [];
     let serialNo = 1;
-
-    // Use filtered orders for Excel download
     groupedData.forEach((group) => {
       const doctor = group.doctor;
       const totalCommission = group.orders.reduce(
         (total, order) => total + (order.referralFee - order.discount),
         0
       );
-
       excelData.push({
         "Serial No": serialNo++,
         "Doctor Name": doctor.name || "Unknown",
         "Total Commission": totalCommission,
-
-        // Added fields for excel sheet- Armaan Siddiqui
         "Doctor Mobile": doctor.phoneNo || "N/A",
         "Doctor Address": doctor.address || "N/A",
       });
     });
-
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Doctor Report");
-
     XLSX.writeFile(wb, "Doctor_Report.xlsx");
   };
 
@@ -231,26 +203,19 @@ useEffect(() => {
   const downloadDetailedExcel = () => {
     const excelData = [];
     let serialNo = 1;
-  
-    // Flatten the grouped data into an array of orders with associated doctor details
     const flattenedData = groupedData.flatMap((group) =>
       group.orders.map((order) => ({
         doctor: group.doctor,
         order: order,
       }))
     );
-  
-    // Sort the flattened data by doctor name
     flattenedData.sort((a, b) => {
       const nameA = a.doctor.name?.toLowerCase() || "unknown";
       const nameB = b.doctor.name?.toLowerCase() || "unknown";
       return nameA.localeCompare(nameB);
     });
-  
-    // Populate excelData with sorted entries
     flattenedData.forEach(({ doctor, order }) => {
       const totalCommission = order.referralFee - order.discount;
-  
       excelData.push({
         "Serial No": serialNo++,
         "Date": new Date(order.createdAt).toLocaleDateString('en-GB'),
@@ -269,11 +234,9 @@ useEffect(() => {
         "Total Commission": totalCommission,
       });
     });
-  
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Detailed Report");
-  
     XLSX.writeFile(wb, "Detailed_Report.xlsx");
   };
 
@@ -282,26 +245,20 @@ useEffect(() => {
       setMessage("Please select a doctor to filter.");
       return;
     }
-  
-    const filteredByDoctor = allOrders.filter(
+    const filteredByDoctor = filteredOrders.filter(
       (order) => order.referredBy === selectedDoctor
     );
-  
     setFilteredOrders(filteredByDoctor);
-  
     if (filteredByDoctor.length === 0) {
       setMessage("No records found for the selected doctor.");
     } else {
-      setMessage(""); // Clear any previous message
+      setMessage("");
     }
   };
 
   const resetAllFilters = () => {
-    // Reset doctor filter
-    setSelectedDoctor(null); // Clear the selected doctor
-    setSearchQueryDoc("");   // Clear the search query for doctors
-  
-    // Reset date filter
+    setSelectedDoctor(null);
+    setSearchQueryDoc("");
     setDateRange([
       {
         startDate: new Date(),
@@ -309,24 +266,24 @@ useEffect(() => {
         key: "selection",
       },
     ]);
-  
-    // Reset filtered orders and clear messages
-    setFilteredOrders(allOrders); // Reset to show all orders
-    setMessage(""); // Clear any messages
-  
-    // Hide date picker if it's visible
+    dispatch(fetchAllOrders()); // Fetch all orders to reset the view
+    setMessage("");
     setShowDatePicker(false);
   };
   
+  // Pagination Handlers-Armaan Siddiqui
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prevPage => prevPage + 1);
+    }
+  };
 
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prevPage => prevPage - 1);
+    }
+  };
   
-  
-  
-  
-
-
-
-
   return (
     <div className="p-2 sm:p-6 mt-16">
       {/* Controls Section - Made responsive */}
@@ -363,7 +320,6 @@ useEffect(() => {
               </div>
             </SelectContent>
           </Select>
-
           <button
             onClick={applyDoctorFilter}
             className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-700 transition w-full sm:w-auto"
@@ -380,7 +336,6 @@ useEffect(() => {
           >
             {showDatePicker ? "Hide Date Picker" : "Show Date Picker"}
           </button>
-
           {showDatePicker && (
             <div className="ml-0 sm:ml-4 bg-white border border-gray-300 shadow-md rounded-lg p-4 w-full sm:w-[600px]">
               <DateRangePicker
@@ -483,8 +438,6 @@ useEffect(() => {
                     <td className="border border-gray-300 p-2">
                       {new Date(order.createdAt).toLocaleDateString('en-GB')}
                     </td>
-
-
                     <td className="border border-gray-300 p-2">
                       {order.name || "Unknown"}
                     </td>
@@ -525,6 +478,25 @@ useEffect(() => {
             </tbody>
           </table>
         </div>
+      </div>
+      
+      {/* Pagination Controls-Armaan Siddiqui */}
+      <div className="flex justify-evenly items-center mt-6">
+        <Button
+          onClick={handlePrevPage}
+          disabled={currentPage === 1}
+          className="bg-gray-300 text-gray-800 disabled:opacity-50"
+        >
+          Previous
+        </Button>
+        <span>Page {currentPage} of {totalPages}</span>
+        <Button
+          onClick={handleNextPage}
+          disabled={currentPage >= totalPages}
+          className="bg-gray-300 text-gray-800 disabled:opacity-50"
+        >
+          Next
+        </Button>
       </div>
 
       {/* Scroll to top button */}
