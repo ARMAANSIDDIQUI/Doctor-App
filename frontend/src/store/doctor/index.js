@@ -1,5 +1,3 @@
-// src/redux/doctorsSlice.js
-
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '@/common/axios';
 
@@ -31,12 +29,31 @@ export const fetchDoctorById = createAsyncThunk(
   }
 );
 
+// Redux store added for doctor total count-Armaan Siddiqui
+/**
+ * @description: Async thunk to fetch the total count of all doctors.
+ * This function makes a GET request to a new API endpoint to get the count.
+ */
+export const fetchTotalDoctorsCount = createAsyncThunk(
+  'doctors/fetchTotalDoctorsCount',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/doctors/count');
+      return response.data.totalDoctors;
+    } catch (error) {
+      console.error('Error fetching total doctor count:', error);
+      return rejectWithValue('Failed to fetch total doctor count');
+    }
+  }
+);
+
 // Creating the slice
 const doctorsSlice = createSlice({
   name: 'doctors',
   initialState: {
     doctors: [],
     doctorDetails: null, // Store the details of a single doctor
+    totalDoctors: 0, // State for storing the total count of doctors
     loading: false,
     error: null,
   },
@@ -69,6 +86,20 @@ const doctorsSlice = createSlice({
       .addCase(fetchDoctorById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
+      })
+      
+      // Fetching the total count of doctors-Armaan Siddiqui
+      .addCase(fetchTotalDoctorsCount.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchTotalDoctorsCount.fulfilled, (state, action) => {
+        state.loading = false;
+        state.totalDoctors = action.payload; // Store the total count
+      })
+      .addCase(fetchTotalDoctorsCount.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });

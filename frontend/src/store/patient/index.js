@@ -56,6 +56,22 @@ export const checkPatientByPhone = createAsyncThunk(
     }
   }
 );
+// Fetching the total count of patients-Armaan Siddiqui
+/**
+ * @description: Async thunk to fetch the total count of all patients.
+ */
+export const fetchTotalPatientsCount = createAsyncThunk(
+  'patient/fetchTotalPatientsCount',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/patients/count');
+      return response.data.totalPatients;
+    } catch (error) {
+      console.error('Error fetching total patient count:', error);
+      return rejectWithValue('Failed to fetch total patient count');
+    }
+  }
+);
 
 // Creating a slice
 const patientSlice = createSlice({
@@ -64,6 +80,7 @@ const patientSlice = createSlice({
     phoneNo: '',
     patients: [],
     allPatients: [], // Add allPatients state
+    totalPatients: 0, // State for storing the total count
     isNewEntry: true,
     loading: false, // Add loading state
     error: null, // For capturing errors
@@ -120,6 +137,18 @@ const patientSlice = createSlice({
       .addCase(checkPatientByPhone.rejected, (state) => {
         state.loading = false; // Set loading to false if the request is rejected
         state.error = 'Error checking patient by phone'; // Set error message if the request fails
+      })
+      .addCase(fetchTotalPatientsCount.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchTotalPatientsCount.fulfilled, (state, action) => {
+        state.loading = false;
+        state.totalPatients = action.payload; // Store the total count
+      })
+      .addCase(fetchTotalPatientsCount.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });

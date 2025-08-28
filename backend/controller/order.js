@@ -23,7 +23,7 @@ const PlaceOrder = async (req, res) => {
       placedBy,
       //Added new fields for Online + Cash - Armaan Siddiqui
       online = 0,
-      cash = 0, 
+      cash = 0,
     } = req.body;
 
     // Get today's date in DDMMYYYY format
@@ -75,7 +75,6 @@ const PlaceOrder = async (req, res) => {
       discount,
       finalPayment,
       paymentMode,
-
       referralFee,
       placedBy,
       //Added new fields for Online + Cash - Armaan Siddiqui
@@ -156,7 +155,7 @@ const fetchAllOrder = async (req, res) => {
 const EditOrder = async (req, res) => {
   try {
     const { orderId } = req.params; // Order ID is passed in the URL parameters
-    const updateData = req.body;    // The data to update is passed in the request body
+    const updateData = req.body; // The data to update is passed in the request body
 
     // Find the existing order
     const existingOrder = await Order.findById(orderId);
@@ -188,7 +187,7 @@ const EditOrder = async (req, res) => {
 
     // Update the order with the new data
     const updatedOrder = await Order.findByIdAndUpdate(orderId, updateData, {
-      new: true,    // This ensures that the updated order is returned
+      new: true, // This ensures that the updated order is returned
       runValidators: true, // This ensures the model validation is run during the update
     });
 
@@ -336,4 +335,125 @@ const fetchFilteredOrders = async (req, res) => {
   }
 };
 
-module.exports = { PlaceOrder, fetchOrder, fetchPaginatedOrders, fetchAllOrder, EditOrder, DeleteOrder, fetchAllOrdersFromDB, fetchFilteredOrders };
+
+// Added New Controller For Orders Count-Armaan Siddiqui
+/**
+ * @description: Fetches the total count of orders.
+ * @param {object} req - The request object.
+ * @param {object} res - The response object.
+ * @returns {object} - JSON response containing the total order count.
+ */
+const getTotalOrdersCount = async (req, res) => {
+  try {
+    const totalOrders = await Order.countDocuments();
+
+    res.status(200).json({
+      message: 'Total order count fetched successfully.',
+      totalOrders: totalOrders,
+    });
+  } catch (error) {
+    console.error('Error fetching total order count:', error);
+    res.status(500).json({
+      message: 'Error fetching total order count.',
+      error: error.message,
+    });
+  }
+};
+
+// Added New Controller to allow pagination with filter and download report support-Armaan Siddiqui
+/**
+ * @description: Fetches a paginated list of orders with optional search and date filters.
+ * @param {object} req - The request object with query parameters.
+ * @param {object} res - The response object.
+ * @returns {object} - JSON response containing paginated orders and total count.
+ */
+
+const getOrdersWithFilters = async (req, res) => {
+  console.log("REQ QUERY:", req.query);
+
+  try {
+    // Check for a 'download' flag in the query parameters
+    const { skip = 0, limit = 10, searchQuery, startDate, endDate, referredBy, download } = req.query;
+    const query = {};
+    
+    let orConditions = [];
+
+    // Check for search query (name, serialNo)
+    if (searchQuery) {
+      const regex = new RegExp(searchQuery, 'i');
+      
+      // Search for doctors by name
+      const doctors = await DoctorDB.find({ name: regex }).select('_id');
+      const doctorIds = doctors.map(doc => doc._id);
+
+      orConditions.push({ name: regex });
+      orConditions.push({ serialNo: regex });
+      
+      if (doctorIds.length > 0) {
+          orConditions.push({ referredBy: { $in: doctorIds } });
+      }
+    }
+    
+    // Check for doctor dropdown filter
+    if (referredBy && referredBy !== "none") {
+        query.referredBy = referredBy;
+    }
+
+    // Combine conditions using $and if both are present
+    if (orConditions.length > 0 && query.referredBy) {
+      query.$and = [{ referredBy: query.referredBy }, { $or: orConditions }];
+      delete query.referredBy;
+    } 
+    else if (orConditions.length > 0) {
+      query.$or = orConditions;
+    }
+
+    // Add date range filter
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+    
+    console.log("FINAL QUERY:", JSON.stringify(query));
+
+    const totalOrders = await Order.countDocuments(query);
+    let ordersQuery = Order.find(query);
+
+    // Logic: Only apply skip and limit if the 'download' flag is NOT true
+    if (download !== 'true') {
+        ordersQuery = ordersQuery.skip(parseInt(skip)).limit(parseInt(limit));
+    }
+
+    const orders = await ordersQuery
+      .populate('referredBy')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      message: 'Orders fetched successfully.',
+      orders: orders,
+      totalOrders: totalOrders
+    });
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({
+      message: 'Error fetching orders.',
+      error: error.message,
+    });
+  }
+};
+
+
+module.exports = { 
+  PlaceOrder, 
+  fetchOrder, 
+  fetchPaginatedOrders, 
+  fetchAllOrder, 
+  EditOrder, 
+  DeleteOrder, 
+  fetchAllOrdersFromDB, 
+  fetchFilteredOrders,
+  getTotalOrdersCount,
+  getOrdersWithFilters
+};

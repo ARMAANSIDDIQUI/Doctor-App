@@ -29,7 +29,7 @@ const OrderSchema = new mongoose.Schema(
         },
         referredBy : {
             type: mongoose.Schema.Types.Mixed, // Reference to DoctorDB
-            ref: "doctors", // Target collection
+            ref: "Doctor", // Target collection
             required: true        
         },
         category:{

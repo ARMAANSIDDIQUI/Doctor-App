@@ -158,7 +158,31 @@ const GetDoctorById = async (req, res) => {
     throw error;
   }
 };
-  
+
+
+// Added New Controller for DOctor count-Armaan Siddiqui
+/**
+ * @description: Fetches the total count of doctors.
+ * @param {object} req - The request object.
+ * @param {object} res - The response object.
+ * @returns {object} - JSON response containing the total doctor count.
+ */
+const getTotalDoctorsCount = async (req, res) => {
+  try {
+    const totalDoctors = await DoctorDB.countDocuments();
+
+    res.status(200).json({
+      message: 'Total doctor count fetched successfully.',
+      totalDoctors: totalDoctors,
+    });
+  } catch (error) {
+    console.error('Error fetching total doctor count:', error);
+    res.status(500).json({
+      message: 'Error fetching total doctor count.',
+      error: error.message,
+    });
+  }
+};
   
 
 module.exports = {
@@ -167,5 +191,6 @@ module.exports = {
   DeleteDoctor,
   GetDoctorById,
   GetAllDoctors,
-  fetchAllDoctorsFromDB
+  fetchAllDoctorsFromDB,
+  getTotalDoctorsCount
 };

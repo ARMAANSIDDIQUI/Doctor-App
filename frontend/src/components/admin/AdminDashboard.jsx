@@ -1,22 +1,24 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchDoctors } from "../../store/doctor";
-import { fetchAllPatients } from "../../store/patient";
-import { fetchAllOrders } from "../../store/order"; // Import action to fetch orders
+
+// Using new store to fetch count api controllers for fast dashboard load-Armaan Siddiqui
+import { fetchTotalDoctorsCount } from "../../store/doctor/index.js";
+import { fetchTotalPatientsCount } from "../../store/patient/index.js";
+import { fetchTotalOrdersCount } from "../../store/order/index.js";
 
 const AdminDashBoard = () => {
   const dispatch = useDispatch();
 
-  // Selecting data from the Redux store
-  const { doctors, loading: doctorsLoading } = useSelector((state) => state.doctors);
-  const { allPatients, loading: patientsLoading } = useSelector((state) => state.patient);
-  const { allOrders, loading: ordersLoading } = useSelector((state) => state.order); // Select orders
+  // Selecting total counts from the Redux store
+  const { totalDoctors, loading: doctorsLoading } = useSelector((state) => state.doctors);
+  const { totalPatients, loading: patientsLoading } = useSelector((state) => state.patient);
+  const { totalOrders, loading: ordersLoading } = useSelector((state) => state.order);
 
-  // Fetch doctors, patients, and orders on component mount
+  // Fetch only the total counts on component mount
   useEffect(() => {
-    dispatch(fetchDoctors());
-    dispatch(fetchAllPatients());
-    dispatch(fetchAllOrders()); // Dispatch action to fetch orders
+    dispatch(fetchTotalDoctorsCount());
+    dispatch(fetchTotalPatientsCount());
+    dispatch(fetchTotalOrdersCount());
   }, [dispatch]);
 
   return (
@@ -27,7 +29,6 @@ const AdminDashBoard = () => {
       <main className="flex-1 p-6 overflow-auto">
         <header className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">Dashboard Overview</h2>
-          
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -35,19 +36,19 @@ const AdminDashBoard = () => {
           <div className="p-6 bg-white rounded-md shadow-md">
             <h3 className="text-lg font-medium text-gray-600">Total Doctors</h3>
             <p className="mt-2 text-3xl font-bold text-gray-800">
-              {doctorsLoading ? "Loading..." : doctors?.length || 0}
+              {doctorsLoading ? "Loading..." : totalDoctors}
             </p>
           </div>
           <div className="p-6 bg-white rounded-md shadow-md">
             <h3 className="text-lg font-medium text-gray-600">Total Patients</h3>
             <p className="mt-2 text-3xl font-bold text-gray-800">
-              {patientsLoading ? "Loading..." : allPatients?.length || 0}
+              {patientsLoading ? "Loading..." : totalPatients}
             </p>
           </div>
           <div className="p-6 bg-white rounded-md shadow-md">
             <h3 className="text-lg font-medium text-gray-600">Total Cases</h3>
             <p className="mt-2 text-3xl font-bold text-gray-800">
-              {ordersLoading ? "Loading..." : allOrders?.length || 0}
+              {ordersLoading ? "Loading..." : totalOrders}
             </p>
           </div>
         </div>

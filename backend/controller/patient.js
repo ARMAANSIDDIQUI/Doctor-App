@@ -179,8 +179,29 @@ const checkPatientisNewByPhone = async (req, res) => {
     }
   };
 
+// Added New Controller for patient count-Armaan Siddiqui
+/**
+ * @description: Fetches the total count of patients.
+ * @param {object} req - The request object.
+ * @param {object} res - The response object.
+ * @returns {object} - JSON response containing the total patient count.
+ */
+const getTotalPatientsCount = async (req, res) => {
+  try {
+    const totalPatients = await Patient.countDocuments();
 
-  
+    res.status(200).json({
+      message: 'Total patient count fetched successfully.',
+      totalPatients: totalPatients,
+    });
+  } catch (error) {
+    console.error('Error fetching total patient count:', error);
+    res.status(500).json({
+      message: 'Error fetching total patient count.',
+      error: error.message,
+    });
+  }
+};
   
 module.exports = {
   AddPatient,
@@ -190,4 +211,5 @@ module.exports = {
   getPatientsByPhone,
   getPatientsByDoctorAndDate, // Add the new API here
   checkPatientisNewByPhone,
+  getTotalPatientsCount
 };
