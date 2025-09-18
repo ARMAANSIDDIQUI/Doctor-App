@@ -1,17 +1,18 @@
-// Complete logic change for order displaying-Armaan Siddiqui
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import Modal from "./model";
+import ViewDetailsModal from "./Model";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { format } from "date-fns";
-import { fetchOrdersWithFilters, updateOrder } from "../store/order"; 
+import { format, isValid, addDays } from "date-fns";
+import { fetchOrdersWithFilters, updateOrder } from "../store/order";
 import { useDispatch, useSelector } from "react-redux";
 import ModalEditForm from "./ModalEditForm";
 import api from '@/common/axios';
 import { DateRangePicker } from "react-date-range";
 import { enGB } from "date-fns/locale";
+import { RefreshCcw, ChevronUp, ChevronDown } from 'lucide-react';
+import "react-date-range/dist/styles.css";
+import "react-date-range/dist/theme/default.css";
 
 // imports for print report button navigation - Armaan Siddiqui
 import { useNavigate } from "react-router-dom";
@@ -25,21 +26,27 @@ const AdminOrdersPage = () => {
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const [showDateRange, setShowDateRange] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [editOrderData, setEditOrderData] = useState(null);
 
     // State for search and date range filters-Armaan Siddiqui
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedDateRange, setSelectedDateRange] = useState({
-        startDate: null,
-        endDate: null,
-        key: "selection",
-    });
+    
+    // Updated date states to match MonthlyReport component
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [dateRange, setDateRange] = useState([
+        {
+            startDate: null,
+            endDate: null,
+            key: "selection",
+        },
+    ]);
 
     const [doctors, setDoctors] = useState([]);
-    
+
     // Pagination states
     const [ordersPerPage, setOrdersPerPage] = useState(50);
     const [currentPage, setCurrentPage] = useState(1);
@@ -50,7 +57,7 @@ const AdminOrdersPage = () => {
     const [selectedOrders, setSelectedOrders] = useState([]);
     const [selectAll, setSelectAll] = useState(false);
 
-    const totalPages = Math.ceil(totalOrders / ordersPerPage);
+    const totalPages = Math.max(1, Math.ceil(totalOrders / ordersPerPage));
 
     // Centralized fetching logic
     const fetchOrders = () => {
@@ -63,10 +70,8 @@ const AdminOrdersPage = () => {
             params.searchQuery = searchQuery;
         }
         // Conditionally add date filters
-        if (selectedDateRange.startDate && selectedDateRange.endDate) {
-            params.startDate = format(selectedDateRange.startDate, 'yyyy-MM-dd');
-            params.endDate = format(selectedDateRange.endDate, 'yyyy-MM-dd');
-        }
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
         dispatch(fetchOrdersWithFilters(params));
     };
 
@@ -81,11 +86,50 @@ const AdminOrdersPage = () => {
             }
         };
         fetchDoctors();
-    }, [dispatch, currentPage, ordersPerPage, searchQuery, selectedDateRange.startDate, selectedDateRange.endDate]);
+    }, [dispatch, currentPage, ordersPerPage, searchQuery, startDate, endDate]);
 
 
-    const handleToggleDateRange = () => {
-        setShowDateRange((prevState) => !prevState);
+    // Function to adjust date
+    const adjustDate = (dateString, direction) => {
+        const initialDate = dateString ? new Date(dateString) : new Date();
+        if (!isValid(initialDate)) {
+            return dateString;
+        }
+        const amount = direction === 'increment' ? 1 : -1;
+        const newDate = addDays(initialDate, amount);
+        return format(newDate, 'yyyy-MM-dd');
+    };
+    
+    // Function to show date picker
+    const handleShowDatePicker = () => {
+        const sDate = new Date(startDate);
+        const eDate = new Date(endDate);
+        setDateRange([
+            {
+                startDate: isValid(sDate) ? sDate : null,
+                endDate: isValid(eDate) ? eDate : null,
+                key: "selection",
+            },
+        ]);
+        setShowDatePicker(true);
+    };
+
+    // Function to apply date filter from picker
+    const applyDateFilter = () => {
+        const { startDate: pickerStartDate, endDate: pickerEndDate } = dateRange[0];
+        if (pickerStartDate) setStartDate(format(pickerStartDate, 'yyyy-MM-dd'));
+        if (pickerEndDate) setEndDate(format(pickerEndDate, 'yyyy-MM-dd'));
+        setShowDatePicker(false);
+        setCurrentPage(1); // Reset to first page
+    };
+
+    // Function to reset date filter
+    const resetDateFilter = () => {
+        setStartDate("");
+        setEndDate("");
+        setDateRange([{ startDate: null, endDate: null, key: 'selection' }]);
+        setShowDatePicker(false);
+        setCurrentPage(1); // Reset to first page
     };
 
     const handleOrdersPerPageChange = (e) => {
@@ -93,17 +137,20 @@ const AdminOrdersPage = () => {
         setCurrentPage(1);
     };
 
+    // The handler for when the ModalEditForm submits.
     const handleEditSubmit = async (formData) => {
         try {
+            // The orderId is taken from the state that opened the modal.
             const orderId = editOrderData._id;
             const updatedData = formData;
 
+            // This is the correct Redux action for updating.
             const action = await dispatch(updateOrder({ orderId, updatedData }));
 
             if (action.type === "order/updateOrder/fulfilled") {
                 console.log("Order updated successfully", action.payload);
-                setEditOrderData(null);
-                fetchOrders(); 
+                setEditOrderData(null); // Close the modal
+                fetchOrders(); // Re-fetch the orders to display the latest data
             }
         } catch (error) {
             console.error("Error updating order", error);
@@ -124,7 +171,14 @@ const AdminOrdersPage = () => {
                 const response = await api.delete(`/orders/${orderId}`);
                 if (response.status === 200 || response.status === 204) {
                     window.alert("Order deleted successfully!");
-                    fetchOrders(); 
+                    // Check if the current page will become empty
+                    if (paginatedOrders.length === 1 && currentPage > 1) {
+                        // If it's the last item on a page that's not the first page, go back one page
+                        setCurrentPage(currentPage - 1);
+                    } else {
+                        // Otherwise, just refetch the data for the current page
+                        fetchOrders();
+                    }
                 } else {
                     window.alert("Failed to delete the order.");
                 }
@@ -140,8 +194,18 @@ const AdminOrdersPage = () => {
             try {
                 await Promise.all(selectedOrders.map(orderId => api.delete(`/orders/${orderId}`)));
                 window.alert("Selected orders deleted successfully!");
+
+                // Check if all items on the current page are being deleted
+                if (paginatedOrders.length === selectedOrders.length && currentPage > 1) {
+                    // Go back one page
+                    setCurrentPage(currentPage - 1);
+                } else {
+                    // Otherwise, refetch the current page
+                    fetchOrders();
+                }
+
+                // It's good practice to clear the selection state
                 setSelectedOrders([]);
-                fetchOrders(); 
             } catch (error) {
                 console.error("Error deleting selected orders:", error);
                 window.alert("Something went wrong while deleting selected orders.");
@@ -156,21 +220,6 @@ const AdminOrdersPage = () => {
             }
             return [...prevSelectedOrders, orderId];
         });
-    };
-
-    const handleApplyFilter = () => {
-        setCurrentPage(1); 
-        setShowDateRange(false);
-    };
-
-    const resetDateFilter = () => {
-        setSelectedDateRange({
-            startDate: null,
-            endDate: null,
-            key: "selection",
-        });
-        setCurrentPage(1);
-        setShowDateRange(false);
     };
 
     const handleSelectAll = () => {
@@ -250,51 +299,75 @@ const AdminOrdersPage = () => {
                         </select>
                     </div>
                 </div>
-
-                {/* Date Range Controls - Made Responsive */}
-                <div className="mb-4">
-                    <Button
-                        onClick={handleToggleDateRange}
-                        className="w-full sm:w-auto bg-blue-600 text-white mb-4 sm:mb-6"
-                    >
-                        {showDateRange ? "Hide Date Range Filter" : "Show Date Range Filter"}
-                    </Button>
-                </div>
-
-                {showDateRange && (
-                    <div className="mb-4 sm:mb-6">
-                        <div className="w-full overflow-x-auto">
-                            <DateRangePicker
-                                ranges={[selectedDateRange]}
-                                onChange={(item) => {
-                                    const startDate = item.selection.startDate;
-                                    const endDate = item.selection.endDate;
-                                    setSelectedDateRange({
-                                        startDate: new Date(startDate.setHours(0, 0, 0, 0)),
-                                        endDate: new Date(endDate.setHours(23, 59, 59, 999)),
-                                        key: "selection",
-                                    });
-                                }}
-                                locale={enGB}
-                                className="max-w-full"
-                            />
+                 
+                {/* --- MODIFIED: Date input section with combined UI --- */}
+                <div className="mb-4 sm:mb-6 relative">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <Label htmlFor="from-date" className="text-sm font-medium text-gray-700">From Date</Label>
+                            <div className="relative">
+                                <Input
+                                    id="from-date"
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="p-2 w-full pr-8"
+                                />
+                                <div className="absolute inset-y-0 right-0 flex flex-col justify-center pr-2">
+                                    <button onClick={() => setStartDate(d => adjustDate(d, 'increment'))} className="cursor-pointer h-1/2 hover:bg-gray-100 rounded-tr-md">
+                                        <ChevronUp className="h-4 w-4 text-gray-600" />
+                                    </button>
+                                    <button onClick={() => setStartDate(d => adjustDate(d, 'decrement'))} className="cursor-pointer h-1/2 hover:bg-gray-100 rounded-br-md">
+                                        <ChevronDown className="h-4 w-4 text-gray-600" />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-4">
-                            <Button
-                                onClick={handleApplyFilter}
-                                className="w-full sm:w-auto bg-green-600 text-white"
-                            >
-                                Apply Filter
-                            </Button>
-                            <Button
-                                onClick={resetDateFilter}
-                                className="w-full sm:w-auto bg-red-600 text-white"
-                            >
-                                Remove Filter
-                            </Button>
+                        <div>
+                            <Label htmlFor="to-date" className="text-sm font-medium text-gray-700">To Date</Label>
+                            <div className="relative">
+                                <Input
+                                    id="to-date"
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="p-2 w-full pr-8"
+                                />
+                                <div className="absolute inset-y-0 right-0 flex flex-col justify-center pr-2">
+                                    <button onClick={() => setEndDate(d => adjustDate(d, 'increment'))} className="cursor-pointer h-1/2 hover:bg-gray-100 rounded-tr-md">
+                                        <ChevronUp className="h-4 w-4 text-gray-600" />
+                                    </button>
+                                    <button onClick={() => setEndDate(d => adjustDate(d, 'decrement'))} className="cursor-pointer h-1/2 hover:bg-gray-100 rounded-br-md">
+                                        <ChevronDown className="h-4 w-4 text-gray-600" />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                )}
+                    <div className="flex gap-2 mt-2">
+                        <Button onClick={handleShowDatePicker} className="w-full bg-blue-600 text-white hover:bg-blue-700">
+                             Select from Calendar
+                        </Button>
+                        <Button onClick={resetDateFilter} className="w-full bg-red-600 text-white hover:bg-red-700">
+                             Remove Filter
+                        </Button>
+                    </div>
+                    {showDatePicker && (
+                        <div className="absolute top-full mt-2 bg-white border border-gray-300 shadow-lg rounded-lg p-2 z-30">
+                            <DateRangePicker
+                                editableDateInputs={true}
+                                onChange={(item) => setDateRange([item.selection])}
+                                moveRangeOnFirstSelection={false}
+                                ranges={dateRange}
+                                className="text-sm"
+                            />
+                            <div className="mt-2 flex gap-2 justify-end">
+                                <Button onClick={applyDateFilter} className="bg-green-600 hover:bg-green-700">Apply</Button>
+                                <Button onClick={() => setShowDatePicker(false)} className="bg-gray-400 hover:bg-gray-500">Close</Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 {/* Delete Selected Orders Button */}
                 {selectedOrders.length > 0 && (
@@ -336,7 +409,7 @@ const AdminOrdersPage = () => {
                             <tbody>
                                 {ordersLoading ? (
                                     <tr>
-                                        <td colSpan="8" className="text-center py-4 text-gray-500">
+                                        <td colSpan="9" className="text-center py-4 text-gray-500">
                                             Loading...
                                         </td>
                                     </tr>
@@ -399,7 +472,7 @@ const AdminOrdersPage = () => {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="8" className="text-center py-4 text-gray-500">
+                                        <td colSpan="9" className="text-center py-4 text-gray-500">
                                             No orders found
                                         </td>
                                     </tr>
@@ -432,7 +505,7 @@ const AdminOrdersPage = () => {
 
             {/* Modals */}
             {selectedOrder && (
-                <Modal
+                <ViewDetailsModal
                     isOpen={true}
                     onClose={() => setSelectedOrder(null)}
                     selectedOrder={selectedOrder}

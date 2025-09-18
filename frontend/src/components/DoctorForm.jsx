@@ -1,26 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '@/common/axios';
 
 const DoctorForm = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     name: '',
     phoneNo: '',
     address: '',
   });
 
+  // State for handling success/error messages
+  const [message, setMessage] = useState({ text: '', type: '' });
+
+  const doctorId = location.state?._id;
+
   useEffect(() => {
     if (location.state) {
       setFormData(location.state);
     }
   }, [location.state]);
-
-  const doctorId = location.state?._id;
-
-
-
-  const [message, setMessage] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -32,33 +33,45 @@ const DoctorForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage({ text: '', type: '' }); // Clear previous message
+
+    //Add client-side validation for "None"
+    if (formData.name.trim().toLowerCase() === 'none') {
+        setMessage({ text: "The name 'None' is reserved and cannot be used.", type: 'error' });
+        return;
+    }
+
     try {
       let response;
       if (doctorId) {
         // Update Doctor
         response = await api.put(`/doctor/${doctorId}`, formData);
-        setMessage(response.data.message || 'Doctor updated successfully!');
+        setMessage({ text: response.data.message || 'Doctor updated successfully!', type: 'success' });
       } else {
         // Add New Doctor
         response = await api.post('/doctor/add', formData);
-        setMessage(response.data.message || 'Doctor added successfully!');
+        setMessage({ text: response.data.message || 'Doctor added successfully!', type: 'success' });
         setFormData({
           name: '',
           phoneNo: '',
           address: '',
         });
       }
-      // Navigate back after success
+      
+      // Navigate back after 2 seconds
       setTimeout(() => navigate('/admin/doctors'), 2000);
+
     } catch (error) {
       console.error(error);
-      setMessage('An error occurred while processing the request.');
+      // 5. Enhanced error handling to show specific backend messages
+      const errorMessage = error.response?.data?.message || 'An error occurred while processing the request.';
+      setMessage({ text: errorMessage, type: 'error' });
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-      <h1 className="text-3xl font-bold mb-8 text-blue-600"> {doctorId ? 'Update Doctor' : 'Add Doctor'}</h1>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 mt-16">
+      <h1 className="text-3xl font-bold mb-8 text-blue-600"> {doctorId ? 'Update Doctor' : 'Add New Doctor'}</h1>
       <form
         onSubmit={handleSubmit}
         className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md"
@@ -78,8 +91,6 @@ const DoctorForm = () => {
           />
         </div>
 
-       
-
         <div className="mb-4">
           <label htmlFor="phoneNo" className="block text-sm font-medium text-gray-700">
             Phone No:
@@ -90,7 +101,6 @@ const DoctorForm = () => {
             name="phoneNo"
             value={formData.phoneNo}
             onChange={handleChange}
-            required
             className="mt-1 p-2 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
@@ -105,24 +115,23 @@ const DoctorForm = () => {
             name="address"
             value={formData.address}
             onChange={handleChange}
-            required
             className="mt-1 p-2 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
-  
-
-       
 
         <button
           type="submit"
           className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
-          {doctorId ? 'Update' : 'Submit'}
+          {doctorId ? 'Update Doctor' : 'Save Doctor'}
         </button>
       </form>
 
-      {message && (
-        <p className="mt-4 text-lg font-semibold text-green-600">{message}</p>
+      {/* Conditionally styled message */}
+      {message.text && (
+        <p className={`mt-4 text-lg font-semibold ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+          {message.text}
+        </p>
       )}
     </div>
   );

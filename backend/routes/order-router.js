@@ -8,7 +8,9 @@ const {
     fetchFilteredOrders,
     fetchPaginatedOrders,
     getTotalOrdersCount,
-    getOrdersWithFilters // Import the new function
+    getOrdersWithFilters,
+    // getOrdersForDownload, // New import
+    // getSummaryReportForDownload // New import
 } = require("../controller/order");
 
 const router = express.Router();
@@ -20,10 +22,11 @@ router.put("/orders/:orderId", EditOrder);
 router.delete("/orders/:orderId", DeleteOrder);
 router.get("/ordersbydate", fetchFilteredOrders);
 router.get("/allordersPaginated", fetchPaginatedOrders);
-
-//New route to get the total count of all orders-Armaan Siddiqui
 router.get("/orders/count", getTotalOrdersCount);
-//New route to allow pagination and filter of orders-Armaan Siddiqui
 router.get("/orders/filter", getOrdersWithFilters);
+
+// Updated routes for filtered downloading
+// router.get("/orders/download/detailed", getOrdersForDownload);
+// router.get("/orders/download/summary", getSummaryReportForDownload);
 
 module.exports = router;

@@ -1,32 +1,33 @@
-// Complete logic restructure for filtering(dropdown, searcbar, Date range) and also filtered downloading-Armaan Siddiqui
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOrdersWithFilters } from "../store/order";
 import { fetchCategories } from "../store/categories";
 import { DateRangePicker } from "react-date-range";
-import * as XLSX from "xlsx";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { RefreshCcw } from 'lucide-react';
+import { RefreshCcw, ChevronUp, ChevronDown } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import api from "@/common/axios";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, isValid, addDays } from "date-fns";
 
 const MonthlyReport = () => {
+    // All state and logic hooks remain the same
     const dispatch = useDispatch();
     const [doctors, setDoctors] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [searchQueryDoc, setSearchQueryDoc] = useState("");
-    const [selectedDoctor, setSelectedDoctor] = useState("none");
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [groupedData, setGroupedData] = useState([]);
+    const [selectedDoctor, setSelectedDoctor] = useState("all");
     const [categories, setCategories] = useState([]);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [message, setMessage] = useState("");
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [downloadAll, setDownloadAll] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
     const [dateRange, setDateRange] = useState([
         {
             startDate: null,
@@ -37,31 +38,28 @@ const MonthlyReport = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [ordersPerPage, setOrdersPerPage] = useState(50);
     const { paginatedOrders, totalOrders, loading: ordersLoading } = useSelector((state) => state.order);
-    const totalPages = Math.ceil(totalOrders / ordersPerPage);
+    const totalPages = Math.max(1, Math.ceil(totalOrders / ordersPerPage));
 
-    const fetchReportData = () => {
+    // All functions remain the same
+    const fetchReportData = useCallback(() => {
         const params = {
             skip: (currentPage - 1) * ordersPerPage,
             limit: ordersPerPage,
         };
 
-        if (selectedDoctor !== "none") {
-            params.referredBy = selectedDoctor;
-        }
-        if (searchQuery) {
-            params.searchQuery = searchQuery;
-        }
-
-        if (dateRange[0].startDate && dateRange[0].endDate) {
-            params.startDate = format(dateRange[0].startDate, 'yyyy-MM-dd');
-            params.endDate = format(dateRange[0].endDate, 'yyyy-MM-dd');
-        }
+        if (selectedDoctor !== "all") params.referredBy = selectedDoctor;
+        if (searchQuery) params.searchQuery = searchQuery;
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
         dispatch(fetchOrdersWithFilters(params));
-    };
+    }, [dispatch, currentPage, ordersPerPage, searchQuery, selectedDoctor, startDate, endDate]);
 
     useEffect(() => {
         fetchReportData();
-        const fetchDoctors = async () => {
+    }, [fetchReportData]);
+
+    useEffect(() => {
+        const fetchInitialData = async () => {
             try {
                 const response = await api.get("/doctors");
                 setDoctors(response.data.doctors || []);
@@ -69,28 +67,136 @@ const MonthlyReport = () => {
                 console.error("Error fetching doctors:", error);
             }
         };
-        fetchDoctors();
-        dispatch(fetchCategories()).then((res) => setCategories(res.payload));
-    }, [dispatch, currentPage, ordersPerPage, searchQuery, selectedDoctor, dateRange[0].startDate, dateRange[0].endDate]);
+        fetchInitialData();
+        dispatch(fetchCategories()).then((res) => setCategories(res.payload || []));
+    }, [dispatch]);
+    
+    const adjustDate = (dateString, direction) => {
+        const initialDate = dateString ? new Date(dateString) : new Date();
+        if (!isValid(initialDate)) {
+            return dateString;
+        }
+        const amount = direction === 'increment' ? 1 : -1;
+        const newDate = addDays(initialDate, amount);
+        return format(newDate, 'yyyy-MM-dd');
+    };
 
-    useEffect(() => {
-        const groupOrdersByDoctor = () => {
-            const grouped = paginatedOrders.reduce((acc, order) => {
-                const doctorId = order.referredBy?._id;
-                if (doctorId) {
-                    if (!acc[doctorId]) acc[doctorId] = { doctor: order.referredBy, orders: [] };
-                    acc[doctorId].orders.push(order);
-                }
-                return acc;
-            }, {});
-            setGroupedData(Object.values(grouped));
-        };
-        groupOrdersByDoctor();
+    const groupedData = useMemo(() => {
+        if (!paginatedOrders) return [];
+        return Object.values(paginatedOrders.reduce((acc, order) => {
+            const doctorId = order.referredBy?._id;
+            if (doctorId) {
+                if (!acc[doctorId]) acc[doctorId] = { doctor: order.referredBy, orders: [] };
+                acc[doctorId].orders.push(order);
+            }
+            return acc;
+        }, {}));
     }, [paginatedOrders]);
 
     const filteredDoctors = doctors.filter((doctor) =>
         doctor.name && typeof doctor.name === 'string' && doctor.name.toLowerCase().includes(searchQueryDoc.toLowerCase())
     );
+
+    const handleShowDatePicker = () => {
+        const sDate = new Date(startDate);
+        const eDate = new Date(endDate);
+        setDateRange([
+            {
+                startDate: isValid(sDate) ? sDate : null,
+                endDate: isValid(eDate) ? eDate : null,
+                key: "selection",
+            },
+        ]);
+        setShowDatePicker(true);
+    };
+
+    const applyDateFilter = () => {
+        const { startDate: pickerStartDate, endDate: pickerEndDate } = dateRange[0];
+        if (pickerStartDate) setStartDate(format(pickerStartDate, 'yyyy-MM-dd'));
+        if (pickerEndDate) setEndDate(format(pickerEndDate, 'yyyy-MM-dd'));
+        setShowDatePicker(false);
+    };
+
+    const resetDateFilter = () => {
+        setStartDate("");
+        setEndDate("");
+        setDateRange([{ startDate: null, endDate: null, key: 'selection' }]);
+        setShowDatePicker(false);
+    };
+
+    const resetAllFilters = () => {
+        setSearchQuery("");
+        setSearchQueryDoc("");
+        setSelectedDoctor("all");
+        setStartDate("");
+        setEndDate("");
+        setDownloadAll(false);
+        setShowDatePicker(false);
+        setCurrentPage(1);
+        setMessage("");
+    };
+
+    const getDownloadParams = () => {
+        if (downloadAll) {
+            return { download: 'true' };
+        }
+        const params = {
+            searchQuery: searchQuery || undefined,
+            referredBy: selectedDoctor !== "all" ? selectedDoctor : undefined,
+            download: 'true',
+        };
+        if (startDate && endDate) {
+            params.startDate = startDate;
+            params.endDate = endDate;
+        } else {
+            const now = new Date();
+            params.startDate = format(startOfMonth(now), 'yyyy-MM-dd');
+            params.endDate = format(endOfMonth(now), 'yyyy-MM-dd');
+        }
+        Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
+        return params;
+    };
+    
+    const handleDownload = async (reportType) => {
+        if (isDownloading) return;
+        setIsDownloading(true);
+        setMessage("Preparing report...");
+
+        const worker = new Worker(new URL('./excelWorker.js', import.meta.url), { type: 'module' });
+        const params = getDownloadParams();
+        
+        worker.postMessage({ params, reportType, categories });
+
+        worker.onmessage = (event) => {
+            const { status, data, fileName, message: workerMessage } = event.data;
+            if (status === 'success') {
+                const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                setMessage("Report downloaded successfully.");
+            } else {
+                console.error("Web worker failed:", workerMessage);
+                setMessage("An error occurred while generating the report.");
+            }
+            setIsDownloading(false);
+            worker.terminate();
+            setTimeout(() => setMessage(""), 5000);
+        };
+
+        worker.onerror = (error) => {
+            console.error("Web worker error:", error);
+            setMessage("An error occurred with the web worker.");
+            setIsDownloading(false);
+            worker.terminate();
+            setTimeout(() => setMessage(""), 5000);
+        };
+    };
 
     const handleOrdersPerPageChange = (e) => {
         setOrdersPerPage(Number(e.target.value));
@@ -106,180 +212,21 @@ const MonthlyReport = () => {
         setSelectedDoctor(value);
         setCurrentPage(1);
     };
-
-    const applyDateFilter = () => {
-        setMessage("");
-        setShowDatePicker(false);
-        setCurrentPage(1);
-    };
-
-    const resetDateFilter = () => {
-        setDateRange([
-            {
-                startDate: null,
-                endDate: null,
-                key: "selection",
-            },
-        ]);
-        setMessage("");
-        setShowDatePicker(false);
-        setCurrentPage(1);
-    };
-
-    const resetAllFilters = () => {
-        setSearchQuery("");
-        setSearchQueryDoc("");
-        setSelectedDoctor("none");
-        setDateRange([
-            {
-                startDate: null,
-                endDate: null,
-                key: "selection",
-            },
-        ]);
-        setCurrentPage(1);
-        setMessage("");
-        setShowDatePicker(false);
-    };
-
-    const downloadExcel = async () => {
-        const params = {
-            searchQuery,
-            referredBy: selectedDoctor !== "none" ? selectedDoctor : undefined,
-            startDate: dateRange[0].startDate ? format(dateRange[0].startDate, 'yyyy-MM-dd') : undefined,
-            endDate: dateRange[0].endDate ? format(dateRange[0].endDate, 'yyyy-MM-dd') : undefined,
-            download: 'true'
-        };
-
-        try {
-            const response = await dispatch(fetchOrdersWithFilters(params)).unwrap();
-            const allOrders = response.orders || [];
-
-            const grouped = allOrders.reduce((acc, order) => {
-                const doctorId = order.referredBy?._id;
-                if (doctorId) {
-                    if (!acc[doctorId]) acc[doctorId] = { doctor: order.referredBy, orders: [] };
-                    acc[doctorId].orders.push(order);
-                }
-                return acc;
-            }, {});
-            const groupedDataForExcel = Object.values(grouped);
-            const excelData = [];
-            let serialNo = 1;
-            groupedDataForExcel.forEach((group) => {
-                const doctor = group.doctor;
-                const totalCommission = group.orders.reduce(
-                    (total, order) => total + (order.referralFee - order.discount),
-                    0
-                );
-                excelData.push({
-                    "Serial No": serialNo++,
-                    "Doctor Name": doctor.name || "Unknown",
-                    "Total Commission": totalCommission,
-                    "Doctor Mobile": doctor.phoneNo || "N/A",
-                    "Doctor Address": doctor.address || "N/A",
-                });
-            });
-            const ws = XLSX.utils.json_to_sheet(excelData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Doctor Report");
-            XLSX.writeFile(wb, "Doctor_Report.xlsx");
-        } catch (error) {
-            console.error("Error downloading report:", error);
-            setMessage("Failed to download report. Please try again.");
-        }
-    };
-
-    const downloadDetailedExcel = async () => {
-        const params = {
-            searchQuery,
-            referredBy: selectedDoctor !== "none" ? selectedDoctor : undefined,
-            startDate: dateRange[0].startDate ? format(dateRange[0].startDate, 'yyyy-MM-dd') : undefined,
-            endDate: dateRange[0].endDate ? format(dateRange[0].endDate, 'yyyy-MM-dd') : undefined,
-            download: 'true'
-        };
-
-        try {
-            const response = await dispatch(fetchOrdersWithFilters(params)).unwrap();
-            const allOrders = response.orders || [];
-
-            const grouped = allOrders.reduce((acc, order) => {
-                const doctorId = order.referredBy?._id;
-                if (doctorId) {
-                    if (!acc[doctorId]) acc[doctorId] = { doctor: order.referredBy, orders: [] };
-                    acc[doctorId].orders.push(order);
-                }
-                return acc;
-            }, {});
-            const groupedDataForExcel = Object.values(grouped);
-            const excelData = [];
-            let serialNo = 1;
-            const flattenedData = groupedDataForExcel.flatMap((group) =>
-                group.orders.map((order) => ({
-                    doctor: group.doctor,
-                    order: order,
-                }))
-            );
-            flattenedData.sort((a, b) => {
-                const nameA = a.doctor.name?.toLowerCase() || "unknown";
-                const nameB = b.doctor.name?.toLowerCase() || "unknown";
-                return nameA.localeCompare(nameB);
-            });
-            flattenedData.forEach(({ doctor, order }) => {
-                const totalCommission = order.referralFee - order.discount;
-                excelData.push({
-                    "Serial No": serialNo++,
-                    "Date": new Date(order.createdAt).toLocaleDateString('en-GB'),
-                    "Patient Name": order.name || "Unknown",
-                    "Doctor Name": doctor.name || "Unknown",
-                    "Doctor Mobile": doctor.phoneNo || "N/A",
-                    "Doctor Address": doctor.address || "N/A",
-                    "Placed By": order.placedBy || "N/A",
-                    ...categories.reduce((acc, category) => {
-                        acc[category.name] = order.category === category.name ? order.subcategory || "N/A" : "";
-                        return acc;
-                    }, {}),
-                    "Discount": order.discount || 0,
-                    "Final Payment": order.finalPayment || 0,
-                    "Referral Fee": order.referralFee || 0,
-                    "Total Commission": totalCommission,
-                });
-            });
-            const ws = XLSX.utils.json_to_sheet(excelData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Detailed Report");
-            XLSX.writeFile(wb, "Detailed_Report.xlsx");
-        } catch (error) {
-            console.error("Error downloading detailed report:", error);
-            setMessage("Failed to download detailed report. Please try again.");
-        }
-    };
-
+    
     const handleNextPage = () => {
-        if (currentPage < totalPages) {
-            setCurrentPage(prevPage => prevPage + 1);
-        }
+        if (currentPage < totalPages) setCurrentPage(prevPage => prevPage + 1);
     };
 
     const handlePrevPage = () => {
-        if (currentPage > 1) {
-            setCurrentPage(prevPage => prevPage - 1);
-        }
+        if (currentPage > 1) setCurrentPage(prevPage => prevPage - 1);
     };
 
     const handleScroll = () => {
-        if (window.scrollY > 300) {
-            setShowScrollButton(true);
-        } else {
-            setShowScrollButton(false);
-        }
+        setShowScrollButton(window.scrollY > 300);
     };
 
     const scrollToTop = () => {
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth",
-        });
+        window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     useEffect(() => {
@@ -289,51 +236,72 @@ const MonthlyReport = () => {
 
     return (
         <div className="p-2 sm:p-6 mt-16">
-            <div className="mb-6 flex flex-col sm:flex-row gap-4 sm:space-x-6 items-start">
-                <div className="flex flex-col w-full sm:w-72 space-y-2">
-                    <Label htmlFor="doctor" className="text-lg font-semibold text-gray-700">
-                        Select Doctor
-                    </Label>
-                    <Select
-                        value={selectedDoctor}
-                        onValueChange={handleDoctorChange}
-                        className="w-full"
-                    >
-                        <SelectTrigger id="doctor">
-                            <SelectValue placeholder="Select a doctor" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white border border-gray-300 shadow-md rounded-lg max-h-60 overflow-auto">
-                            <div className="sticky top-0 bg-white p-2 border-b border-gray-300 z-20">
-                                <Input
-                                    type="text"
-                                    placeholder="Search doctor"
-                                    value={searchQueryDoc}
-                                    onChange={(e) => setSearchQueryDoc(e.target.value)}
-                                    className="border border-gray-300 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                <div className="flex flex-col space-y-2">
+                    <Label htmlFor="doctor" className="text-lg font-semibold text-gray-700">Select Doctor</Label>
+                    <Select value={selectedDoctor} onValueChange={handleDoctorChange}>
+                        <SelectTrigger id="doctor" className="w-full"><SelectValue placeholder="Select a doctor" /></SelectTrigger>
+                        <SelectContent className="bg-white border border-gray-300 shadow-md rounded-lg max-h-60">
+                            <div className="sticky top-0 bg-white p-2 border-b border-gray-300 z-10">
+                                <Input type="text" placeholder="Search doctor" value={searchQueryDoc} onChange={(e) => setSearchQueryDoc(e.target.value)} className="border border-gray-300 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
                             </div>
                             <div className="max-h-48 overflow-auto">
-                                <SelectItem value="none">
-                                    None
-                                </SelectItem>
-                                {filteredDoctors.map((doctor) => (
-                                    <SelectItem key={doctor._id} value={doctor._id}>
-                                        {doctor.name}
-                                    </SelectItem>
-                                ))}
+                                <SelectItem value="all">All Doctors</SelectItem>
+                                {filteredDoctors.map((doctor) => (<SelectItem key={doctor._id} value={doctor._id}>{doctor.name}</SelectItem>))}
                             </div>
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
-                    <button
-                        onClick={() => setShowDatePicker(!showDatePicker)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition w-full sm:w-auto"
-                    >
-                        {showDatePicker ? "Hide Date Picker" : "Show Date Picker"}
-                    </button>
+
+                {/* --- MODIFIED: Date input section with combined UI --- */}
+                <div className="flex flex-col space-y-2 relative">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <Label htmlFor="from-date" className="text-sm font-medium text-gray-700">From Date</Label>
+                            <div className="relative">
+                                <Input
+                                    id="from-date"
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="p-2 w-full pr-8" // Padding to make space for buttons
+                                />
+                                <div className="absolute inset-y-0 right-0 flex flex-col justify-center pr-2">
+                                    <button onClick={() => setStartDate(d => adjustDate(d, 'increment'))} className="cursor-pointer h-1/2 hover:bg-gray-100 rounded-tr-md">
+                                        <ChevronUp className="h-4 w-4 text-gray-600" />
+                                    </button>
+                                    <button onClick={() => setStartDate(d => adjustDate(d, 'decrement'))} className="cursor-pointer h-1/2 hover:bg-gray-100 rounded-br-md">
+                                        <ChevronDown className="h-4 w-4 text-gray-600" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <Label htmlFor="to-date" className="text-sm font-medium text-gray-700">To Date</Label>
+                            <div className="relative">
+                                <Input
+                                    id="to-date"
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="p-2 w-full pr-8" // Padding to make space for buttons
+                                />
+                                <div className="absolute inset-y-0 right-0 flex flex-col justify-center pr-2">
+                                    <button onClick={() => setEndDate(d => adjustDate(d, 'increment'))} className="cursor-pointer h-1/2 hover:bg-gray-100 rounded-tr-md">
+                                        <ChevronUp className="h-4 w-4 text-gray-600" />
+                                    </button>
+                                    <button onClick={() => setEndDate(d => adjustDate(d, 'decrement'))} className="cursor-pointer h-1/2 hover:bg-gray-100 rounded-br-md">
+                                        <ChevronDown className="h-4 w-4 text-gray-600" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <Button onClick={handleShowDatePicker} variant="outline" className="w-full mt-2">
+                        Select from Calendar
+                    </Button>
                     {showDatePicker && (
-                        <div className="ml-0 sm:ml-4 bg-white border border-gray-300 shadow-md rounded-lg p-4 w-full sm:w-[600px]">
+                        <div className="absolute top-full mt-2 bg-white border border-gray-300 shadow-lg rounded-lg p-2 z-30">
                             <DateRangePicker
                                 editableDateInputs={true}
                                 onChange={(item) => setDateRange([item.selection])}
@@ -341,41 +309,28 @@ const MonthlyReport = () => {
                                 ranges={dateRange}
                                 className="text-sm"
                             />
-                            <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:space-x-4 justify-end">
-                                <Button
-                                    onClick={applyDateFilter}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-700 transition w-full sm:w-auto"
-                                >
-                                    Apply Date Filter
-                                </Button>
-                                <Button
-                                    onClick={resetDateFilter}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg shadow-lg hover:bg-red-700 transition w-full sm:w-auto"
-                                >
-                                    Remove Filter
-                                </Button>
+                            <div className="mt-2 flex gap-2 justify-end">
+                                <Button onClick={applyDateFilter} className="bg-green-600 hover:bg-green-700">Apply</Button>
+                                <Button onClick={resetDateFilter} className="bg-red-600 hover:bg-red-700">Remove</Button>
+                                <Button variant="ghost" onClick={() => setShowDatePicker(false)}>Close</Button>
                             </div>
                         </div>
                     )}
                 </div>
+                 {/* Remaining empty grid cell for layout alignment */}
+                <div></div>
             </div>
+            
+            {/* ... Rest of the component is unchanged ... */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
                 <div className="flex items-center gap-4 w-full sm:w-auto">
-                    <button
-                        onClick={resetAllFilters}
-                        className="flex items-center justify-center space-x-1 p-1.5 border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                    >
+                    <button onClick={resetAllFilters} className="flex items-center justify-center space-x-1 p-1.5 border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
                         <RefreshCcw className="w-3.5 h-3.5 text-blue-500" />
                         <span className="text-xs font-medium text-gray-600">Reset Filters</span>
                     </button>
-                    <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-2">
                         <Label htmlFor="orders-per-page" className="font-medium text-sm whitespace-nowrap">Show:</Label>
-                        <select
-                            id="orders-per-page"
-                            value={ordersPerPage}
-                            onChange={handleOrdersPerPageChange}
-                            className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
+                        <select id="orders-per-page" value={ordersPerPage} onChange={handleOrdersPerPageChange} className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value={10}>10</option>
                             <option value={20}>20</option>
                             <option value={50}>50</option>
@@ -383,142 +338,80 @@ const MonthlyReport = () => {
                         </select>
                     </div>
                 </div>
-                <input
-                    type="text"
-                    placeholder="Search"
-                    value={searchQuery}
-                    onChange={handleSearchChange}
-                    className="p-2 border border-gray-300 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-48 text-sm"
-                />
-                <div className="flex flex-col sm:flex-row items-center gap-2 sm:space-x-4 w-full sm:w-auto">
-                    <button
-                        onClick={downloadExcel}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition w-full sm:w-auto"
-                    >
-                        Download Report
-                    </button>
-                    <button
-                        onClick={downloadDetailedExcel}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition w-full sm:w-auto"
-                    >
-                        Download Detailed Report
-                    </button>
+                <input type="text" placeholder="Search Patient Name" value={searchQuery} onChange={handleSearchChange} className="p-2 border border-gray-300 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-48 text-sm" />
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                    <div className="flex items-center space-x-2">
+                        <input type="checkbox" id="downloadAll" checked={downloadAll} onChange={(e) => setDownloadAll(e.target.checked)} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"/>
+                        <Label htmlFor="downloadAll" className="text-sm font-medium text-gray-700">Download All</Label>
+                    </div>
+                    <Button onClick={() => handleDownload('grouped')} disabled={isDownloading} className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition w-full sm:w-auto disabled:bg-gray-400">
+                        {isDownloading ? 'Downloading...' : 'Download Report'}
+                    </Button>
+                    <Button onClick={() => handleDownload('detailed')} disabled={isDownloading} className="px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-700 transition w-full sm:w-auto disabled:bg-gray-400">
+                        {isDownloading ? 'Downloading...' : 'Download Detailed'}
+                    </Button>
                 </div>
             </div>
-            {message && <p className="mt-4 text-center text-green-600">{message}</p>}
+            {message && <p className={`mt-4 text-center font-semibold ${message.includes('error') ? 'text-red-600' : 'text-blue-600'}`}>{message}</p>}
+
             <div className="w-full overflow-x-auto shadow-md rounded-lg">
-                <div className="min-w-max">
-                    <table className="w-full border-collapse border border-gray-300">
-                        <thead>
-                            <tr className="bg-gray-100">
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Serial No</th>
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Date</th>
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Patient</th>
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Doctor Name</th>
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Doctor Mobile</th>
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Doctor Address</th>
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Placed By</th>
-                                {categories.map((category) => (
-                                    <th key={category._id} className="border border-gray-300 p-2 whitespace-nowrap">
-                                        {category.name}
-                                    </th>
-                                ))}
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Discount</th>
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Final Payment</th>
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Referral Fee</th>
-                                <th className="border border-gray-300 p-2 whitespace-nowrap">Total Commission</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {ordersLoading ? (
-                                <tr>
-                                    <td colSpan={12 + categories.length} className="text-center py-4 text-gray-500">
-                                        Loading...
-                                    </td>
-                                </tr>
-                            ) : groupedData.length > 0 ? (
-                                groupedData.map((group, groupIndex) =>
-                                    group.orders.map((order, orderIndex) => (
-                                        <tr
-                                            key={order._id}
-                                            className={`${(groupIndex + orderIndex) % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
-                                        >
-                                            <td className="border border-gray-300 p-2">{order.serialNo}</td>
-                                            <td className="border border-gray-300 p-2">
-                                                {new Date(order.createdAt).toLocaleDateString('en-GB')}
-                                            </td>
-                                            <td className="border border-gray-300 p-2">
-                                                {order.name || "Unknown"}
-                                            </td>
-                                            <td className="border border-gray-300 p-2">
-                                                {order.referredBy?.name || "Unknown"}
-                                            </td>
-                                            <td className="border border-gray-300 p-2">
-                                                {order.referredBy?.phoneNo || "N/A"}
-                                            </td>
-                                            <td className="border border-gray-300 p-2">
-                                                {order.referredBy?.address || "N/A"}
-                                            </td>
-                                            <td className="border border-gray-300 p-2">
-                                                {order.placedBy || "N/A"}
-                                            </td>
-                                            {categories.map((category) => (
-                                                <td key={category._id} className="border border-gray-300 p-2">
-                                                    {order.category === category.name
-                                                        ? order.subcategory || "N/A"
-                                                        : ""}
-                                                </td>
-                                            ))}
-                                            <td className="border border-gray-300 p-2">
-                                                {order.discount || 0}
-                                            </td>
-                                            <td className="border border-gray-300 p-2">
-                                                {order.finalPayment || 0}
-                                            </td>
-                                            <td className="border border-gray-300 p-2">
-                                                {order.referralFee}
-                                            </td>
-                                            <td className="border border-gray-300 p-2">
-                                                {order.referralFee - order.discount}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )
-                            ) : (
-                                <tr>
-                                    <td colSpan={12 + categories.length} className="text-center py-4 text-gray-500">
-                                        No orders found
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                 <table className="w-full min-w-max border-collapse border border-gray-300">
+                    <thead>
+                        <tr className="bg-gray-100">
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Serial No</th>
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Date</th>
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Patient</th>
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Doctor Name</th>
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Doctor Mobile</th>
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Doctor Address</th>
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Placed By</th>
+                            {categories.map((category) => (
+                                <th key={category._id} className="border border-gray-300 p-2 whitespace-nowrap">
+                                    {category.name}
+                                </th>
+                            ))}
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Discount</th>
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Final Payment</th>
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Referral Fee</th>
+                            <th className="border border-gray-300 p-2 whitespace-nowrap">Total Commission</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {ordersLoading ? (
+                            <tr><td colSpan={11 + categories.length} className="text-center py-4 text-gray-500">Loading...</td></tr>
+                        ) : groupedData.length > 0 ? (
+                            groupedData.flatMap((group) =>
+                                group.orders.map((order) => (
+                                    <tr key={order._id} className="hover:bg-gray-100">
+                                        <td className="border border-gray-300 p-2">{order.serialNo}</td>
+                                        <td className="border border-gray-300 p-2">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
+                                        <td className="border border-gray-300 p-2">{order.name || "Unknown"}</td>
+                                        <td className="border border-gray-300 p-2">{order.referredBy?.name || "Unknown"}</td>
+                                        <td className="border border-gray-300 p-2">{order.referredBy?.phoneNo || "N/A"}</td>
+                                        <td className="border border-gray-300 p-2">{order.referredBy?.address || "N/A"}</td>
+                                        <td className="border border-gray-300 p-2">{order.placedBy || "N/A"}</td>
+                                        {categories.map((category) => (
+                                            <td key={category._id} className="border border-gray-300 p-2">{order.category === category.name ? order.subcategory || "N/A" : ""}</td>
+                                        ))}
+                                        <td className="border border-gray-300 p-2">{order.discount || 0}</td>
+                                        <td className="border border-gray-300 p-2">{order.finalPayment || 0}</td>
+                                        <td className="border border-gray-300 p-2">{order.referralFee || 0}</td>
+                                        <td className="border border-gray-300 p-2">{(order.referralFee || 0) - (order.discount || 0)}</td>
+                                    </tr>
+                                ))
+                            )
+                        ) : (
+                            <tr><td colSpan={11 + categories.length} className="text-center py-4 text-gray-500">No orders found</td></tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
-            {/* Pagination Controls */}
             <div className="flex justify-evenly items-center mt-6">
-                <Button
-                    onClick={handlePrevPage}
-                    disabled={currentPage === 1}
-                    className="bg-gray-300 text-gray-800 disabled:opacity-50"
-                >
-                    Previous
-                </Button>
+                <Button onClick={handlePrevPage} disabled={currentPage === 1 || ordersLoading || isDownloading} className="bg-gray-300 text-gray-800 disabled:opacity-50">Previous</Button>
                 <span>Page {currentPage} of {totalPages}</span>
-                <Button
-                    onClick={handleNextPage}
-                    disabled={currentPage >= totalPages}
-                    className="bg-gray-300 text-gray-800 disabled:opacity-50"
-                >
-                    Next
-                </Button>
+                <Button onClick={handleNextPage} disabled={currentPage >= totalPages || ordersLoading || isDownloading} className="bg-gray-300 text-gray-800 disabled:opacity-50">Next</Button>
             </div>
-            {/* Scroll to top button */}
-            <button
-                onClick={scrollToTop}
-                className="fixed bottom-4 right-4 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition transform hover:scale-105 z-50"
-                style={{ display: showScrollButton ? 'block' : 'none' }}
-            >
+            <button onClick={scrollToTop} className="fixed bottom-4 right-4 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition transform hover:scale-105 z-50" style={{ display: showScrollButton ? 'flex' : 'none' }}>
                 ↑
             </button>
         </div>

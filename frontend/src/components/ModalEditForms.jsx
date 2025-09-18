@@ -28,6 +28,15 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
   // state for managing wrong disc input- Armaan Siddiqui
   const [prevDiscount, setPrevDiscount] = useState("");
 
+  // MODIFICATION START: Add state for doctor search functionality
+  const [doctorSearchTerm, setDoctorSearchTerm] = useState("");
+  const [isDoctorListVisible, setIsDoctorListVisible] = useState(false);
+  // MODIFICATION END
+
+  // MODIFICATION START #1: Find the "None" doctor and safely get its ID
+  const noneDoctor = doctors.find(doc => doc.name.toLowerCase() === 'none');
+  const noneDoctorId = noneDoctor ? noneDoctor._id : null;
+  // MODIFICATION END
 
   // Local state for form fields
   const [formData, setFormData] = useState({
@@ -43,12 +52,12 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
     discount: "",
     finalPayment: "",
     paymentMode: "",
-    referralFee:"",
+    referralFee: "", // REVERTED: No longer defaulting to 0
 
     // added required fields for order creating- Armaan Siddiqui
     serialNo: "",
     placedBy: "",
-   
+    
   });
 
   // Initialize form data if editing existing data
@@ -71,7 +80,7 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
         // Added fields for online + cash - Armaan Siddiqui
         online: initialData.online || "",
         cash: initialData.cash || "",
-        referralFee: initialData.referralFee || "", 
+        referralFee: initialData.referralFee || "", // REVERTED: No longer defaulting to 0
 
 
         // Added required fields for creating new order-Armaan Siddiqui
@@ -89,14 +98,31 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
   useEffect(() => {
     if (isOpen) {
       dispatch(fetchDoctors());
-       dispatch(fetchCategories()); 
+        dispatch(fetchCategories()); 
     }
   }, [isOpen, dispatch]);
+
+  // MODIFICATION START: Set initial search term for referredBy doctor when data loads
+  useEffect(() => {
+    if (initialData?.referredBy && doctors.length > 0) {
+      if (initialData.referredBy === noneDoctorId) {
+        setDoctorSearchTerm("None");
+      } else {
+        const referredDoctor = doctors.find(doc => doc._id === initialData.referredBy);
+        if (referredDoctor) {
+          setDoctorSearchTerm(referredDoctor.name);
+        }
+      }
+    } else if (!initialData?.referredBy) {
+        setDoctorSearchTerm("");
+    }
+  }, [initialData, doctors, noneDoctorId]);
+  // MODIFICATION END
 
   // Handle input change
   const handleChange = (e) => {
       
-  
+ 
     //Calculate values on change- Armaan Siddiqui
     const { name, value } = e.target;
 
@@ -122,7 +148,7 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
 
     // Track previous discount- Armaan Siddiqui
     if (name === "discount") {
-      setPrevDiscount(formData.discount);  // Save old value before update-Armaan Siddiqui
+      setPrevDiscount(formData.discount);   // Save old value before update-Armaan Siddiqui
     }
 
     if (name === "paymentMode") {
@@ -148,26 +174,26 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
     //     ...prevState,
     //     [name]: value,
     //   };
-  
+ 
     // Removed hard coded final payment calculation- Armaan Siddiqui
-       
+        
     // // If fees or discount change, recalculate finalPayment
     // if (name === "fees" || name === "discount") {
     //   let fees = name === "fees" ? parseFloat(value) || 0 : parseFloat(updatedFormData.fees) || 0;
     //   let discount = name === "discount" ? parseInt(value) || 0 : parseInt(updatedFormData.discount) || 0;
-  
+ 
     
     //   // Update finalPayment after validation
     //   updatedFormData.finalPayment = fees - discount;
     // }
-  
-       
+ 
+        
     //   return updatedFormData;
     // });
   };
       
-    
-  
+      
+ 
   
 
   useEffect(() => {
@@ -191,7 +217,7 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
   }, [formData.category]);
 
   useEffect(() => {
-     
+      
     
       if (valueS) {
         dispatch(fetchSubcategoryDetail(valueS));
@@ -204,7 +230,7 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
           const updated = {
             ...prev,
             fees: subcategory.price || "",
-            referralFee: subcategory.referralFee || "",
+            referralFee: subcategory.referralFee || "", // REVERTED: No longer defaulting to 0
             discount: "",
             finalPayment: subcategory.price || "",
             online: "",
@@ -223,13 +249,10 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
         if (name === "fees" || name === "discount") {
           const fees = name === "fees" ? numVal : parseFloat(prev.fees) || 0;
           const discount = name === "discount" ? numVal : parseFloat(prev.discount) || 0;
-          const referralFee = parseFloat(prev.referralFee) || 0;
+          const referralFee = parseFloat(prev.referralFee) || 0; // This correctly handles empty string as 0
 
           if (discount > referralFee) {
-            alert("Discount cannot be greater than Referral Fee.");
-            updated.discount = prevDiscount; // Revert to previous discount
-            updated.finalPayment = (fees - parseFloat(prevDiscount || 0)).toFixed(2);
-            return updated;
+            toast.warn("Discount cannot be greater than Referral Fee.");
           }
 
           updated.fees = fees;
@@ -247,7 +270,7 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
         if (prev.paymentMode === "Online + Cash") {
           if (name === "online") {
             if (numVal > final) {
-              alert("Amount cannot be greater than Final Payment.");
+              toast.error("Amount cannot be greater than Final Payment.");
               return prev;
             }
             updated.online = numVal;
@@ -256,7 +279,7 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
 
           if (name === "cash") {
             if (numVal > final) {
-              alert("Amount cannot be greater than Final Payment.");
+              toast.error("Amount cannot be greater than Final Payment.");
               return prev;
             }
             updated.cash = numVal;
@@ -267,6 +290,45 @@ const ModalEditForms = ({ isOpen, onClose, onSubmit, initialData }) => {
         return updated;
       };
 
+  // MODIFICATION START: Handlers and filtered list for searchable doctor dropdown
+  const handleDoctorSearchChange = (e) => {
+    const term = e.target.value;
+    setDoctorSearchTerm(term);
+
+    // Clear the actual ID when user starts typing
+    if (formData.referredBy) {
+      setFormData(prev => ({ ...prev, referredBy: "" }));
+    }
+    if (!isDoctorListVisible) {
+      setIsDoctorListVisible(true);
+    }
+  };
+
+  const handleDoctorSelect = (doctor) => {
+    setFormData(prev => ({ ...prev, referredBy: doctor._id }));
+    setDoctorSearchTerm(doctor.name);
+    setIsDoctorListVisible(false);
+  };
+
+  const handleSelectNoneDoctor = () => {
+    setFormData(prev => ({...prev, referredBy: noneDoctorId || ""}));
+    setDoctorSearchTerm("None");
+    setIsDoctorListVisible(false);
+  };
+  
+  const handleDoctorInputBlur = () => {
+    // Delay hiding the list to allow click events on list items to register
+    setTimeout(() => {
+      setIsDoctorListVisible(false);
+    }, 200);
+  };
+  
+  const filteredDoctors = doctors.filter(
+    doctor =>
+        doctor.name.toLowerCase() !== 'none' &&
+        doctor.name.toLowerCase().includes(doctorSearchTerm.toLowerCase())
+  );
+  // MODIFICATION END
 
 
   // Handle form submission
@@ -277,6 +339,16 @@ const handleSubmit = async (e) => {
   const online =( formData.paymentMode === "Online + Cash" && parseFloat(formData.online) )|| 0;
   const cash = ( formData.paymentMode === "Online + Cash" && parseFloat(formData.cash) )|| 0;
   const final = parseFloat(formData.finalPayment) || 0;
+
+  // Sanitize discount and referral fee to ensure they are numbers for validation and API call.
+  const discount = parseFloat(formData.discount) || 0;
+  const referralFee = parseFloat(formData.referralFee) || 0;
+
+  // Add discount check on submit
+  if (discount > referralFee) {
+    toast.error("Discount cannot be greater than Referral Fee.");
+    return;
+  }
 
   // added unbilled change handling- Armaan Siddiqui
   if (formData.paymentMode === "Online + Cash") {
@@ -297,6 +369,8 @@ const handleSubmit = async (e) => {
       online,
       cash,
       finalPayment: final,
+      discount: discount, // Use the sanitized discount value
+      referralFee: referralFee, // Use the sanitized referralFee value
 
 
       // Modifying order data for complying with schema of order- Armaan Siddiqui
@@ -350,7 +424,7 @@ const handleSubmit = async (e) => {
                 className="mt-2 block w-full rounded-md border-2 border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 px-4 py-2 text-sm"
               />
             </div>
-  
+ 
             {/* Phone Number */}
             <div>
               <label htmlFor="phoneNo" className="block text-sm font-medium text-gray-700">
@@ -365,7 +439,7 @@ const handleSubmit = async (e) => {
                 className="mt-2 block w-full rounded-md border-2 border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 px-4 py-2 text-sm"
               />
             </div>
-  
+ 
             {/* Age */}
             <div>
               <label htmlFor="age" className="block text-sm font-medium text-gray-700">
@@ -392,13 +466,13 @@ const handleSubmit = async (e) => {
     onChange={handleChange}
     className="mt-2 block w-full rounded-md border-2 border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 px-4 py-2 text-sm"
   >
-     <option value="">Select Your Gender</option>
+   <option value="">Select Your Gender</option>
     <option value="Male">Male</option>
     <option value="Female">Female</option>
     <option value="Other">Other</option>
   </select>
 </div>
-  
+ 
             {/* Address */}
             <div>
               <label htmlFor="address" className="block text-sm font-medium text-gray-700">
@@ -412,36 +486,55 @@ const handleSubmit = async (e) => {
                 className="mt-2 block w-full rounded-md border-2 border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 px-4 py-2 text-sm"
               />
             </div>
-  
+ 
             {/* Referred By (Doctor Select) */}
-           
-<div>
-  <label htmlFor="referredBy" className="block text-sm font-medium text-gray-700">
-    Referred By
-  </label>
-  <select
-    id="referredBy"
-    name="referredBy"
-    value={formData.referredBy || ""}  // Default value is an empty string if referredBy is null or 0
-    onChange={handleChange}
-    className="mt-2 block w-full rounded-md border-2 border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 px-4 py-2 text-sm"
-  >
-    <option value="">Select Doctor</option>
-    <option value="0">None</option>
-    {doctors?.map((doctor) => (
-      // <option key={doctor.id} value={doctor._id}>
-      //   {doctor.name} {/* Display doctor's name */}
-      // </option>
-      <option key={doctor._id} value={doctor._id}>
-        {doctor.name}
-      </option>
-    ))}
-  </select>
-</div>
+            {/* MODIFICATION START: Replaced dropdown with searchable input */}
+            <div>
+                <label htmlFor="referredBy" className="block text-sm font-medium text-gray-700">
+                    Referred By
+                </label>
+                <div className="relative">
+                    <input
+                        id="referredBy"
+                        type="text"
+                        value={doctorSearchTerm}
+                        onChange={handleDoctorSearchChange}
+                        onFocus={() => setIsDoctorListVisible(true)}
+                        onBlur={handleDoctorInputBlur}
+                        placeholder="Search for a doctor..."
+                        className="mt-2 block w-full rounded-md border-2 border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 px-4 py-2 text-sm"
+                        autoComplete="off"
+                    />
+                    {isDoctorListVisible && (
+                        <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-60 overflow-y-auto shadow-lg">
+                            <li
+                                className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
+                                onMouseDown={handleSelectNoneDoctor}
+                            >
+                                None
+                            </li>
+                            {filteredDoctors.length > 0 ? (
+                                filteredDoctors.map((doctor) => (
+                                    <li
+                                        key={doctor._id}
+                                        className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
+                                        onMouseDown={() => handleDoctorSelect(doctor)}
+                                    >
+                                        {doctor.name}
+                                    </li>
+                                ))
+                            ) : (
+                                <li className="px-4 py-2 text-sm text-gray-500">No doctors found</li>
+                            )}
+                        </ul>
+                    )}
+                </div>
+            </div>
+            {/* MODIFICATION END */}
 
 
 
-  
+ 
             {/* Category (Select Dropdown) */}
             <div>
               <label htmlFor="category" className="block text-sm font-medium text-gray-700">
@@ -466,10 +559,10 @@ const handleSubmit = async (e) => {
     ))}
               </select>
             </div>
-  
+ 
             {/* Subcategory (Select Dropdown) */}
-          {/* Subcategory (Select Dropdown) */}
-          <div>
+            {/* Subcategory (Select Dropdown) */}
+            <div>
   <label htmlFor="subcategory" className="block text-sm font-medium text-gray-700">
     Subcategory
   </label>
@@ -490,7 +583,7 @@ const handleSubmit = async (e) => {
 </div>
 
 
-  
+ 
             {/* Fees */}
             <div>
               <label htmlFor="fees" className="block text-sm font-medium text-gray-700">
@@ -506,7 +599,7 @@ const handleSubmit = async (e) => {
                 readOnly
               />
             </div>
-  
+ 
             {/* Discount */}
             <div>
               <label htmlFor="discount" className="block text-sm font-medium text-gray-700">
@@ -521,7 +614,7 @@ const handleSubmit = async (e) => {
                 className="mt-2 block w-full rounded-md border-2 border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 px-4 py-2 text-sm"
               />
             </div>
-  
+ 
             {/* Final Payment */}
             <div>
               <label htmlFor="finalPayment" className="block text-sm font-medium text-gray-700">
@@ -539,7 +632,7 @@ const handleSubmit = async (e) => {
               />
             </div>
 
-  
+ 
             {/* Payment Mode */}
             <div>
               <label htmlFor="paymentMode" className="block text-sm font-medium text-gray-700">
@@ -604,8 +697,8 @@ const handleSubmit = async (e) => {
           </div>
 
             {/* Referral Fee */}
-          
-  
+            
+ 
             <div className="flex justify-end space-x-4 mt-6">
               <button
                 type="button"
@@ -632,3 +725,4 @@ const handleSubmit = async (e) => {
 };
 
 export default ModalEditForms;
+

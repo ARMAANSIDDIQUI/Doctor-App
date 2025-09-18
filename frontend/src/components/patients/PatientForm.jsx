@@ -33,7 +33,7 @@ import api from "@/common/axios";
 
 const PatientForm = () => {
     const dispatch = useDispatch();
-     const navigate = useNavigate();
+    const navigate = useNavigate();
     const { patients, phoneNo, isNewEntry } = useSelector((state) => state.patient);
     const { doctors} = useSelector((state) => state.doctors);
     const { categories} = useSelector((state) => state.categories);
@@ -44,17 +44,17 @@ const PatientForm = () => {
   const [value, setValue] = React.useState("")
   const [searchTerm, setSearchTerm] = useState("");
   const [searchTermC, setSearchTermC] = useState("");
- 
+
     const [openC, setOpenC] = React.useState(false)
     const [isAddDoctorModalOpen, setIsAddDoctorModalOpen] = useState(false);
     
   const [valueC, setValueC] = React.useState("")
- 
+
     const [openS, setOpenS] = React.useState(false)
   const [valueS, setValueS] = React.useState("")
   const [searchTermS, setSearchTermS] = useState("");
+
  
-  
   const location = useLocation();
   const [filteredSubcategories, setFilteredSubcategories] = useState([]);
   const [formData, setFormData] = useState({
@@ -70,7 +70,7 @@ const PatientForm = () => {
     discount: "",
     finalPayment: "",
     paymentMode:"",
-    referralFee:""
+    referralFee: 0 // MODIFICATION: Default referralFee to 0
   });
 
   // special state for Online + Cash amount spitting - Armaan Siddiqui
@@ -79,7 +79,10 @@ const PatientForm = () => {
     cash: "",
   });
 
-
+  // MODIFICATION START #1: Find the 'None' doctor from the list and get its ID
+  const noneDoctor = doctors.find(doc => doc.name.toLowerCase() === 'none');
+  const noneDoctorId = noneDoctor ? noneDoctor._id : null;
+  // MODIFICATION END
 
   const selectedPatient = location.state?.patient;
   const NewphoneNo= location.state?.phoneNo;
@@ -99,9 +102,9 @@ const PatientForm = () => {
   useEffect(() => {
     dispatch(fetchDoctors());
     dispatch(fetchCategories()); 
-   
     
-  }, []);
+    
+  }, [dispatch]);
   const handleOpenModal = () => {
     setIsAddDoctorModalOpen(true);
   };
@@ -111,7 +114,7 @@ const PatientForm = () => {
     setIsAddDoctorModalOpen(false);
   };
 
- 
+
   
   // useEffect(() => {
   //   dispatch(resetOrderState());
@@ -131,7 +134,7 @@ const PatientForm = () => {
         setFilteredSubcategories([]);
         return;
       }
-  
+ 
       try {
         const response = await api.get(
           `/subcategory?category=${formData.category}`
@@ -141,16 +144,17 @@ const PatientForm = () => {
         console.error('Error fetching subcategories:', error);
       }
     };
-  
+ 
     fetchSubcategoriesByCategory();
-  }, [valueC]);
+  }, [valueC, formData.category]);
+
   useEffect(() => {
-   
-  
+    
+ 
     if (valueS) {
       dispatch(fetchSubcategoryDetail(valueS));
     }
-  }, [valueS]);
+  }, [valueS, dispatch]);
 
   useEffect(() => {
     if (subcategory) {
@@ -158,55 +162,47 @@ const PatientForm = () => {
         ...prevState,
         fees: subcategory.price || '',
         finalPayment: subcategory.price || '',
-        referralFee:subcategory.referralFee || ''
+        referralFee:subcategory.referralFee || 0 // MODIFICATION: Default to 0
       }));
     }
   }, [subcategory]);
 
   
 
-  
-
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-  
+ 
     setFormData((prev) => ({
       ...prev,
       [name]: value
     }));
-  
+ 
     // Handle fees and discount calculation
     if (name === "fees" || name === "discount") {
       let fees = name === "fees" ? parseFloat(value) || 0 : parseFloat(formData.fees) || 0;
-      let discount = name === "discount" ? parseInt(value) || "" : parseInt(formData.discount) || "";
-  
-      // Check if discount is greater than referralFee
-      if (name === "discount" && discount > parseInt(formData.referralFee)) {
-        const userConfirmed = window.confirm(
-          "The discount value exceeds the referral fee. Do you want to proceed?"
-        );
-      
-        if (!userConfirmed) {
-          // Revert discount to its previous value or handle accordingly
-          discount = formData.discount || ""; // Optional: Revert to previous or empty value
-        }
+      let discount = name === "discount" ? parseFloat(value) || 0 : parseFloat(formData.discount) || 0;
+ 
+      // Check if discount is greater than referralFee and show a warning
+      if (name === "discount" && discount > (parseFloat(formData.referralFee) || 0)) {
+        toast.warn("Discount exceeds the referral fee.", { autoClose: 3000 });
       }
       
-  
+ 
       const final = fees - discount;
       setFormData((prev) => ({
         ...prev,
-        finalPayment: final, // Remove decimals here as well
-        discount: discount // Ensure discount is updated without decimals
+        finalPayment: final,
+        discount: discount,
+        [name]:value
       }));
     }
-  
+ 
     // Check phone number length for existing patient check
     if (name === "phoneNo" && value.length === 10) {
       dispatch(checkPatientByPhone(value)).then((action) => {
         if (action.payload.isNew === false) {
-          dispatch(setIsNewEntry(false));  // If patient exists, set isNewEntry to false
+          dispatch(setIsNewEntry(false));   // If patient exists, set isNewEntry to false
         } else {
           dispatch(setIsNewEntry(true));   // If patient is new, set isNewEntry to true
         }
@@ -217,16 +213,16 @@ const PatientForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+ 
     const operatorName = localStorage.getItem('operatorName'); // Get operator name
-  
+ 
     if (!operatorName) {
       toast.error("Session expired. Please login again.");
       navigate('/login');
       return;
     }
 
-    // Prevent submit if if discount > referralFee - Armaan Siddiqui
+    // Prevent submit if discount > referralFee - Armaan Siddiqui
     if (parseFloat(formData.discount) > parseFloat(formData.referralFee || 0)) {
       toast.error("Discount cannot exceed referral fee.");
       return;
@@ -286,16 +282,16 @@ const PatientForm = () => {
           gender: formData.gender,
           address: formData.address,
         };
-  
+ 
         // Dispatch action to add new patient
         await dispatch(addPatient(patientData));
       }
-  
+ 
       // Check payment mode and handle accordingly
       if (formData.paymentMode === "Unbilled") {
         // Create unbilled record
         const unbilledResponse = await dispatch(createUnbilled(orderData));
-  
+ 
         if (unbilledResponse.meta.requestStatus === "fulfilled") {
           toast.success("Unbilled record created successfully");
           navigate("/unbilled-transactions"); // Navigate to unbilled transactions page
@@ -305,7 +301,7 @@ const PatientForm = () => {
       } else {
         // Place regular order for other payment modes
         const orderResponse = await dispatch(placeOrder(orderData));
-  
+ 
         if (orderResponse.meta.requestStatus === "fulfilled") {
           navigate("/print-report");
         } else {
@@ -335,6 +331,7 @@ const PatientForm = () => {
         fees: selectedPatient.fees || "",
         discount: selectedPatient.discount || "",
         finalPayment: selectedPatient.finalPayment || "",
+        referralFee: selectedPatient.referralFee || 0
         
       });
     } else if (patients.length === 1) {
@@ -352,6 +349,7 @@ const PatientForm = () => {
         fees: "",
         discount: "",
         finalPayment:  "",
+        referralFee: 0,
         
         
 
@@ -371,12 +369,12 @@ const PatientForm = () => {
         discount: "",
         finalPayment: "",
         paymentMode:"",
-        referralFee :""
+        referralFee : 0 // MODIFICATION: Default to 0
       });
     }
     else if (!selectedPatient) {
       setFormData({
-        phoneNo:  NewphoneNo || "",
+        phoneNo:   NewphoneNo || "",
         name: "",
         age: "",
         gender: "",
@@ -388,10 +386,10 @@ const PatientForm = () => {
         discount: "",
         finalPayment: "",
         paymentMode:"",
-        referralFee :""
+        referralFee : 0 // MODIFICATION: Default to 0
       });
     }
-  }, [patients, phoneNo, selectedPatient]); // Added selectedPatient as a dependency
+  }, [patients, phoneNo, selectedPatient, NewphoneNo]);
   
   return (
     <div className="min-h-screen flex flex-col md:flex-row mt-14"> {/* Reduced the top margin from mt-16 to mt-4 */}
@@ -420,7 +418,7 @@ const PatientForm = () => {
                 name="phoneNo"
                 value={formData.phoneNo}
                 onChange={handleInputChange}
-                 pattern="^\d{10}$"
+                  pattern="^\d{10}$"
                 placeholder="Enter Your Phone Number"
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 required
@@ -483,8 +481,8 @@ const PatientForm = () => {
             </div>
           </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
   <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
     Gender *
   </label>
@@ -502,9 +500,9 @@ const PatientForm = () => {
     <option value="Other">Other</option>
   </select>
 </div>
-      
+   
 
-          {/* Additional form fields */}
+      {/* Additional form fields */}
 
             {/* Form fields for referredBy and category */}
             <div>
@@ -545,10 +543,12 @@ const PatientForm = () => {
       <CommandItem
           value="none" // Make sure the value for "None" is a specific string
           onSelect={() => {
-            setValue(0); // Set to "none" instead of an empty string
+            // MODIFICATION START #2: Use the found noneDoctorId instead of 0
+            setValue(noneDoctorId); 
             handleInputChange({
-              target: { name: "referredBy", value: 0 }, // Clear the referredBy field
+              target: { name: "referredBy", value: noneDoctorId }, 
             });
+            // MODIFICATION END
             setOpen(false); // Close the popover
           }}
         >
@@ -599,11 +599,11 @@ const PatientForm = () => {
     </div>
     </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-        <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-          Category
-        </label>
-        <Popover open={openC} onOpenChange={setOpenC} className="">
+      <div>
+      <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+        Category
+      </label>
+      <Popover open={openC} onOpenChange={setOpenC} className="">
   <PopoverTrigger asChild>
     <Button
       variant="outline"
@@ -637,7 +637,7 @@ const PatientForm = () => {
             {filteredCategories.map((category) => (
               <CommandItem
                 key={category._id}
-                value={category.name}  // Use category name as the value
+                value={category.name}   // Use category name as the value
                 onSelect={(currentValue) => {
                   setValueC(currentValue === valueC ? "" : currentValue); // Toggle value
                   handleInputChange({
@@ -662,16 +662,16 @@ const PatientForm = () => {
 
 
 
-      </div>
-        
-  
-        
+    </div>
+      
+ 
+      
             {/* Form fields for subcategory and fees */}
             <div>
-        <label htmlFor="subcategory" className="block text-sm font-medium text-gray-700">
-          Subcategory
-        </label>
-        <Popover open={openS} onOpenChange={setOpenS} className="">
+      <label htmlFor="subcategory" className="block text-sm font-medium text-gray-700">
+        Subcategory
+      </label>
+      <Popover open={openS} onOpenChange={setOpenS} className="">
   <PopoverTrigger asChild>
     <Button
       variant="outline"
@@ -734,8 +734,8 @@ const PatientForm = () => {
   </PopoverContent>
 </Popover>
 
-      </div>
-      </div>
+    </div>
+    </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
               <label htmlFor="fees" className="block text-sm font-medium text-gray-700">
@@ -752,9 +752,9 @@ const PatientForm = () => {
                 required
               />
             </div>
-         
-  
-          
+      
+ 
+      
             {/* Form fields for discount and finalPayment */}
             <div>
               <label htmlFor="discount" className="block text-sm font-medium text-gray-700">
@@ -879,7 +879,7 @@ const PatientForm = () => {
               </div>
             </div>
           )}
-  
+ 
           <button
             type="submit"
             className="w-full py-3 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
@@ -890,8 +890,8 @@ const PatientForm = () => {
       </div>
 
       <AddDoctorModal isOpen={isAddDoctorModalOpen} onClose={handleCloseModal} />
-  
-     
+ 
+      
     </div>
   );
   

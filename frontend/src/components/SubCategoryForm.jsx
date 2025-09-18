@@ -14,11 +14,35 @@ const SubCategoryForm = () => {
   const [editingSubCategory, setEditingSubCategory] = useState(null);
   const [filteredSubCategories, setFilteredSubCategories] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalFormData, setModalFormData] = useState({
+    name: '',
+    category: '',
+    price: '',
+    referralFee: '',
+  });
 
   useEffect(() => {
     fetchCategories();
     fetchSubCategories();
   }, []);
+
+  useEffect(() => {
+    if (editingSubCategory) {
+      // Find the correct category ID from the categories list
+      const foundCategory = categories.find(
+        (cat) => cat.name === editingSubCategory.category
+      );
+      setModalFormData({
+        name: editingSubCategory.name,
+        // Set the modal form's category to the ID for the <select>
+        category: foundCategory ? foundCategory._id : '',
+        price: editingSubCategory.price,
+        referralFee: editingSubCategory.referralFee,
+      });
+      setIsModalOpen(true);
+    }
+  }, [editingSubCategory, categories]);
 
   const fetchCategories = async () => {
     try {
@@ -48,17 +72,20 @@ const SubCategoryForm = () => {
     });
   };
 
+  const handleModalChange = (e) => {
+    const { name, value } = e.target;
+    setModalFormData({
+      ...modalFormData,
+      [name]: value,
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       let response;
       if (editingSubCategory) {
-        // Update existing subcategory
-        response = await api.put(
-          `/subcategory/${editingSubCategory._id}`,
-          formData
-        );
-        setMessage(response.data.message || 'Subcategory updated successfully!');
+        // This logic is now handled by the modal's update handler
       } else {
         // Add new subcategory
         response = await api.post('/addSubCategory', formData);
@@ -80,6 +107,33 @@ const SubCategoryForm = () => {
     }
   };
 
+  const handleUpdateSubCategory = async (e) => {
+    e.preventDefault();
+    try {
+      // Find the category name based on the ID selected in the modal
+      const categoryToUpdate = categories.find(
+        (cat) => cat._id === modalFormData.category
+      );
+
+      const updatedData = {
+        ...modalFormData,
+        category: categoryToUpdate ? categoryToUpdate.name : '',
+      };
+      
+      const response = await api.put(
+        `/subcategory/${editingSubCategory._id}`,
+        updatedData
+      );
+      setMessage(response.data.message || 'Subcategory updated successfully!');
+      fetchSubCategories();
+      setIsModalOpen(false);
+      setEditingSubCategory(null);
+    } catch (error) {
+      console.error(error);
+      setMessage('An error occurred while updating the subcategory.');
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this subcategory?')) {
       return;
@@ -96,12 +150,11 @@ const SubCategoryForm = () => {
 
   const handleEdit = (subCategory) => {
     setEditingSubCategory(subCategory);
-    setFormData({
-      name: subCategory.name,
-      category: subCategory.category,
-      price: subCategory.price,
-      referralFee: subCategory.referralFee,
-    });
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingSubCategory(null);
   };
 
   const handleSearch = (e) => {
@@ -115,11 +168,10 @@ const SubCategoryForm = () => {
     setFilteredSubCategories(filtered);
   };
 
-
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
       <h1 className="text-3xl font-extrabold text-center mb-8 text-blue-600">
-        {editingSubCategory ? 'Edit SubCategory' : 'Add SubCategory'}
+        Add SubCategory
       </h1>
       <form
         onSubmit={handleSubmit}
@@ -197,7 +249,7 @@ const SubCategoryForm = () => {
           type="submit"
           className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
-          {editingSubCategory ? 'Update SubCategory' : 'Add SubCategory'}
+          Add SubCategory
         </button>
       </form>
 
@@ -205,8 +257,7 @@ const SubCategoryForm = () => {
         <p className="mt-4 text-lg font-semibold text-green-600">{message}</p>
       )}
 
-
-<div className="mt-8 w-full max-w-2xl">
+      <div className="mt-8 w-full max-w-2xl">
         <input
           type="text"
           value={searchQuery}
@@ -259,6 +310,76 @@ const SubCategoryForm = () => {
           <p className="text-gray-500">No subcategories available.</p>
         )}
       </div>
+
+      {/* Inbuilt Edit Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex justify-center items-center">
+          <div className="relative bg-white rounded-lg shadow-lg p-8 w-full max-w-xl mx-4">
+            <h2 className="text-2xl font-bold mb-4">Edit SubCategory</h2>
+            <form onSubmit={handleUpdateSubCategory}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Name:</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={modalFormData.name}
+                  onChange={handleModalChange}
+                  className="mt-1 p-3 block w-full border rounded-md"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Category:</label>
+                <select
+                  name="category"
+                  value={modalFormData.category}
+                  onChange={handleModalChange}
+                  className="mt-1 p-3 block w-full border rounded-md"
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat._id} value={cat._id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Price:</label>
+                <input
+                  type="number"
+                  name="price"
+                  value={modalFormData.price}
+                  onChange={handleModalChange}
+                  className="mt-1 p-3 block w-full border rounded-md"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Referral Fee:</label>
+                <input
+                  type="number"
+                  name="referralFee"
+                  value={modalFormData.referralFee}
+                  onChange={handleModalChange}
+                  className="mt-1 p-3 block w-full border rounded-md"
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="bg-gray-300 text-gray-800 py-2 px-4 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white py-2 px-4 rounded-lg"
+                >
+                  Update
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

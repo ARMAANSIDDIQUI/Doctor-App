@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchDoctors } from "../store/doctor";
-import api from '@/common/axios';;
+import api from '@/common/axios';
 
 const Doctor = () => {
   const navigate = useNavigate();
@@ -19,10 +19,15 @@ const Doctor = () => {
     navigate("/admin/addDoctor", { state: doctor });
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, name) => {
+    // Check if the doctor's name is "none"
+    if (name.toLowerCase() === 'none') {
+        alert("Cannot delete the Doctor named 'None'.");
+        return; 
+    }
+
     if (window.confirm("Are you sure you want to delete this doctor?")) {
       try {
-        // await api.get(`/doctor/${id}`); Removed wrong logic in deleting doctor- Armaan Siddiqui
         await api.delete(`/doctor/${id}`);
         alert("Doctor deleted successfully!");
         dispatch(fetchDoctors());
@@ -36,11 +41,15 @@ const Doctor = () => {
   useEffect(() => {
     if (doctors) {
       setFilteredDoctors(
-        doctors.filter((doctor) =>
-          `${doctor.name} ${doctor.phoneNo}`
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase())
-        )
+        doctors
+          // 1. First, filter out any doctor named "None"
+          .filter((doctor) => doctor.name.toLowerCase() !== 'none')
+          // 2. Then, apply the search term to the remaining doctors
+          .filter((doctor) =>
+            `${doctor.name} ${doctor.phoneNo}`
+              .toLowerCase()
+              .includes(searchTerm.toLowerCase())
+          )
       );
     }
   }, [searchTerm, doctors]);
@@ -97,7 +106,7 @@ const Doctor = () => {
                 <tbody>
                   {filteredDoctors && filteredDoctors.length > 0 ? (
                     filteredDoctors.map((doctor) => (
-                      <tr key={doctor.id} className="hover:bg-gray-100">
+                      <tr key={doctor._id} className="hover:bg-gray-100">
                         <td className="py-3 px-4 border-b whitespace-nowrap">
                           {doctor.name}
                         </td>
@@ -116,7 +125,7 @@ const Doctor = () => {
                               Edit
                             </button>
                             <button
-                              onClick={() => handleDelete(doctor._id)}
+                              onClick={() => handleDelete(doctor._id, doctor.name)}
                               className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded"
                             >
                               Delete
