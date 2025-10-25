@@ -103,7 +103,7 @@ import api from '@/common/axios'; // Using your common axios instance
 
 // Define a chunk size for pagination. 5000 is a good starting point.
 // Your API MUST support `page` and `limit` query parameters for this to work.
-const PAGE_LIMIT = 20000;
+const PAGE_LIMIT = 10000;
 
 /**
  * Processes a chunk of orders for the 'detailed' report and appends them to the worksheet.
