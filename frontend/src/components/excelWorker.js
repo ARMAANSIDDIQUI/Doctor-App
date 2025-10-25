@@ -277,15 +277,9 @@
 
 
 
-
-// excelWorker.js
-
-// <-- FIX 1: REMOVE the shared Axios import
-// import api from '@/common/axios';
+import api from "@/common/axios"; // Use your axios instance
 
 const PAGE_LIMIT = 10000;
-// <-- FIX 2: ADD the full, hard-coded URL of your backend
-const API_BASE_URL = 'http://localhost:5000'; 
 
 /**
  * Safely escapes a field for CSV format.
@@ -362,7 +356,6 @@ function createGroupedCSV(grouped) {
 }
 
 // --- Main Worker Logic ---
-
 self.onmessage = async (event) => {
     const { params, reportType, categories } = event.data;
     console.log(`Worker started for report: ${reportType} with params:`, params);
@@ -400,16 +393,11 @@ self.onmessage = async (event) => {
                 limit: PAGE_LIMIT
             });
 
-            // <-- FIX 3: Point to the CORRECT paginated route '/api/orders/filter-worker'
-            const url = `${API_BASE_URL}/api/orders/filter?${queryParams.toString()}`;
+            const url = `/orders/filter?${queryParams.toString()}`;
 
-            // <-- FIX 4: Use `fetch` (which works) instead of `api.get` (which is broken in a worker)
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Request failed with status code ${response.status}`);
-            }
-            const data = await response.json(); 
-
+            // --- Axios call instead of fetch ---
+            const { data } = await api.get(url);
+            
             const chunkOrders = data.orders || [];
             totalPages = data.totalPages || 1; // Get total pages from the API
             totalOrdersFetched += chunkOrders.length;
@@ -434,15 +422,10 @@ self.onmessage = async (event) => {
                 }
             }
             
-            // This is the new stop condition
-            if (page >= totalPages) {
-                break; // Exit the loop
-            }
-            
-            page++; // Go to the next page
+            if (page >= totalPages) break;
+            page++;
         }
 
-        // --- Finalization ---
         if (totalOrdersFetched === 0) {
             self.postMessage({ status: 'error', message: 'No orders found to download.' });
             return;
@@ -453,7 +436,6 @@ self.onmessage = async (event) => {
         }
 
         const blob = new Blob([fileContent], { type: 'text/csv;charset=utf-8;' });
-        
         self.postMessage({ status: 'success', data: blob, fileName: fileName });
 
     } catch (error) {
