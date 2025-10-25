@@ -84,6 +84,11 @@ const OrderSchema = new mongoose.Schema(
     },
     {timestamps:true}
 )
+
+// This index fixes the 32MB sorting error and is optimized
+// for your filter (referredBy) and sort (createdAt)-Armaan Siddiqui
+OrderSchema.index({ referredBy: 1, createdAt: -1 });
+
 const Order = mongoose.model("Order",OrderSchema);
 
 module.exports = Order; 

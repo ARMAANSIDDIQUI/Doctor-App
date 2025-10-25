@@ -423,91 +423,6 @@ const getTotalOrdersCount = async (req, res) => {
 };
 
 // Added New Controller to allow pagination with filter and download report support-Armaan Siddiqui
-/**
- * @description: Fetches a paginated list of orders with optional search and date filters.
- * @param {object} req - The request object with query parameters.
- * @param {object} res - The response object.
- * @returns {object} - JSON response containing paginated orders and total count.
- */
-// const getOrdersWithFilters = async (req, res) => {
-//     console.log("REQ QUERY:", req.query);
-//     try {
-//         const { skip = 0, limit = 10, searchQuery, startDate, endDate, referredBy, download } = req.query;
-//         const query = {};
-//         const andConditions = [];
-
-//         // Failsafe 1: Filter out orders with invalid referredBy IDs
-//         const allReferredBy = await Order.distinct('referredBy');
-//         const validReferredBy = allReferredBy.filter(id => mongoose.Types.ObjectId.isValid(id));
-//         andConditions.push({ referredBy: { $in: validReferredBy } });
-
-//         // Failsafe 2: Filter by a specific doctor (with validation)
-//         if (referredBy && referredBy !== "none" && referredBy !== "all" && mongoose.Types.ObjectId.isValid(referredBy)) {
-//             andConditions.push({ referredBy: referredBy });
-//         }
-
-//         // Failsafe 3: Apply search query
-//         if (searchQuery) {
-//             const regex = new RegExp(searchQuery, 'i');
-//             const doctors = await DoctorDB.find({ name: regex }).select('_id');
-//             const doctorIds = doctors.map(doc => doc._id).filter(id => mongoose.Types.ObjectId.isValid(id));
-//             const orConditions = [
-//                 { name: regex },
-//                 { serialNo: regex }
-//             ];
-//             if (doctorIds.length > 0) {
-//                 orConditions.push({ referredBy: { $in: doctorIds } });
-//             }
-//             if (orConditions.length > 0) {
-//                 andConditions.push({ $or: orConditions });
-//             }
-//         }
-
-//         // Failsafe 4: Apply date range filter
-//         if (startDate && endDate) {
-//             const startOfDay = new Date(startDate);
-//             startOfDay.setHours(0, 0, 0, 0);
-//             const endOfNextDay = new Date(endDate);
-//             endOfNextDay.setDate(endOfNextDay.getDate() + 1);
-//             endOfNextDay.setHours(0, 0, 0, 0);
-//             andConditions.push({
-//                 createdAt: {
-//                     $gte: startOfDay,
-//                     $lt: endOfNextDay,
-//                 }
-//             });
-//         }
-        
-//         // Final Query Construction
-//         if (andConditions.length > 0) {
-//             query.$and = andConditions;
-//         }
-
-//         console.log("FINAL QUERY:", JSON.stringify(query));
-//         const totalOrders = await Order.countDocuments(query);
-//         let ordersQuery = Order.find(query);
-
-//         if (download !== 'true') {
-//             ordersQuery = ordersQuery.skip(parseInt(skip)).limit(parseInt(limit));
-//         }
-
-//         const orders = await ordersQuery
-//             .populate('referredBy')
-//             .sort({ createdAt: -1 });
-
-//         res.status(200).json({
-//             message: 'Orders fetched successfully.',
-//             orders: orders,
-//             totalOrders: totalOrders
-//         });
-//     } catch (error) {
-//         console.error('Error fetching orders:', error);
-//         res.status(500).json({
-//             message: 'Error fetching orders.',
-//             error: error.message,
-//         });
-//     }
-// };
 
 const getOrdersWithFilters = async (req, res) => {
   console.log("REQ QUERY:", req.query);
@@ -576,7 +491,8 @@ const getOrdersWithFilters = async (req, res) => {
 
     const orders = await ordersQuery
         .populate('referredBy')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .allowDiskUse(true);
 
     res.status(200).json({
         message: 'Orders fetched successfully.',
@@ -592,87 +508,145 @@ const getOrdersWithFilters = async (req, res) => {
   }
 };
 
+
 // const getOrdersWithFilters = async (req, res) => {
-//     console.log("REQ QUERY:", req.query);
-//     try {
-//         const { skip = 0, limit = 10, searchQuery, startDate, endDate, referredBy, download } = req.query;
-//         const matchConditions = [];
+//   console.log("REQ QUERY:", req.query);
+//   try {
+//     const {
+//       skip = 0,
+//       limit = 10,
+//       searchQuery,
+//       startDate,
+//       endDate,
+//       referredBy,
+//       download,
+//     } = req.query;
 
-//         // Add Doctor filter condition
-//         if (referredBy && referredBy !== "none" && referredBy !== "all" && mongoose.Types.ObjectId.isValid(referredBy)) {
-//             matchConditions.push({ referredBy: mongoose.Types.ObjectId(referredBy) });
-//         }
+//     const conditions = [];
 
-//         // Add Patient search query conditions
-//         if (searchQuery) {
-//             const regex = new RegExp(searchQuery, 'i');
-//             const orConditions = [
-//                 { name: regex },
-//                 { serialNo: regex }
-//             ];
-//             matchConditions.push({ $or: orConditions });
-//         }
-
-//         // Add Date range filter
-//         if (startDate && endDate) {
-//             const startOfDay = new Date(startDate);
-//             startOfDay.setHours(0, 0, 0, 0);
-//             const endOfNextDay = new Date(endDate);
-//             endOfNextDay.setDate(endOfNextDay.getDate() + 1);
-//             endOfNextDay.setHours(0, 0, 0, 0);
-//             matchConditions.push({
-//                 createdAt: {
-//                     $gte: startOfDay,
-//                     $lt: endOfNextDay,
-//                 }
-//             });
-//         }
-        
-//         const finalQuery = matchConditions.length > 0 ? { $and: matchConditions } : {};
-
-//         // Calculate total orders using a simple count
-//         const totalOrders = await Order.countDocuments(finalQuery);
-
-//         // Build the aggregation pipeline
-//         const pipeline = [
-//             // Stage 1: Filter documents based on all conditions
-//             { $match: finalQuery },
-//             // Stage 2: Sort the documents. `allowDiskUse` will apply to this stage.
-//             { $sort: { createdAt: -1 } },
-//             // Stage 3: Perform a join to get doctor details (replaces populate)
-//             {
-//                 $lookup: {
-//                     from: 'doctors',
-//                     localField: 'referredBy',
-//                     foreignField: '_id',
-//                     as: 'referredBy'
-//                 }
-//             },
-//             // Stage 4: Flatten the referredBy array into an object
-//             { $unwind: { path: '$referredBy', preserveNullAndEmptyArrays: true } }
-//         ];
-
-//         // Apply skip and limit only if it's not a download request
-//         if (download !== 'true') {
-//             pipeline.push({ $skip: parseInt(skip) });
-//             pipeline.push({ $limit: parseInt(limit) });
-//         }
-
-//         // Execute the aggregation pipeline with allowDiskUse
-//         const orders = await Order.aggregate(pipeline).allowDiskUse(true);
-
-//         res.status(200).json({
-//             message: 'Orders fetched successfully.',
-//             orders: orders,
-//             totalOrders: totalOrders
-//         });
-//     } catch (error) {
-//         console.error('Error fetching orders:', error);
-//         res.status(500).json({
-//             message: 'Error fetching orders.',
-//             error: error.message,
-//         });
+//     // 1. Doctor dropdown filter
+//     if (referredBy && referredBy !== "none" && referredBy !== "all") {
+//       conditions.push({ referredBy: new mongoose.Types.ObjectId(referredBy) });
 //     }
+
+//     if (searchQuery) {
+//       const regex = new RegExp(searchQuery, "i");
+
+//       // Find doctors whose name matches searchQuery
+//       const doctors = await DoctorDB.find({ name: regex }).select("_id");
+//       const doctorIds = doctors.map((doc) => doc._id);
+
+//       const orConditions = [
+//         { name: regex }, // patient name
+//         { serialNo: regex }, // serial number
+//       ];
+
+//       if (doctorIds.length > 0) {
+//         orConditions.push({ referredBy: { $in: doctorIds } });
+//       }
+
+//       conditions.push({ $or: orConditions });
+//     }
+
+//     // 3. Date range filter
+//     if (startDate && endDate) {
+//       const startOfDay = new Date(startDate);
+//       startOfDay.setHours(0, 0, 0, 0);
+
+//       const endOfNextDay = new Date(endDate);
+//       endOfNextDay.setDate(endOfNextDay.getDate() + 1);
+//       endOfNextDay.setHours(0, 0, 0, 0);
+
+//       conditions.push({
+//         createdAt: {
+//           $gte: startOfDay,
+//           $lt: endOfNextDay,
+//         },
+//       });
+//     }
+
+//     // Combine all filters
+//     const finalQuery = conditions.length > 0 ? { $and: conditions } : {};
+
+//     console.log("FINAL QUERY:", JSON.stringify(finalQuery, null, 2));
+
+//     //LOGIC FOR DOWNLOAD VS PAGINATION
+//     if (download === "true") {
+//       //Streaming download (CSV)
+//       console.log("Starting streaming download...");
+
+//       res.setHeader("Content-Type", "text/csv");
+//       res.setHeader(
+//         "Content-Disposition",
+//         'attachment; filename="orders.csv"'
+//       );
+
+//       // CSV Header
+//       res.write(
+//         "OrderID,PatientName,SerialNo,DoctorName,Date,FinalPayment,PaymentMode\n"
+//       );
+
+//       // Create a cursor to stream data
+//       const cursor = Order.find(finalQuery)
+//         .populate("referredBy")
+//         .sort({ createdAt: -1 })
+//         .cursor();
+
+//       for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
+//         try {
+//           const patient = doc.name ? doc.name.replace(/,/g, "") : "";
+//           const serial = doc.serialNo ? doc.serialNo.replace(/,/g, "") : "";
+//           const doctor =
+//             doc.referredBy && doc.referredBy.name
+//               ? doc.referredBy.name.replace(/,/g, "")
+//               : "N/A";
+//           const date = doc.createdAt
+//             ? doc.createdAt.toISOString().split("T")[0]
+//             : "";
+//           const finalPayment = doc.finalPayment || 0;
+//           const paymentMode = doc.paymentMode
+//             ? doc.paymentMode.replace(/,/g, "")
+//             : "";
+
+//           res.write(
+//             `${doc._id},${patient},${serial},${doctor},${date},${finalPayment},${paymentMode}\n`
+//           );
+//         } catch (docError) {
+//           console.error("Error processing one document:", docError);
+//           // Continue to next document
+//         }
+//       }
+
+//       res.end();
+//       console.log("Streaming download finished.");
+//     } else {
+//       //PAGINATION logic
+//       console.log("Fetching paginated data...");
+
+//       const totalOrders = await Order.countDocuments(finalQuery);
+
+//       const orders = await Order.find(finalQuery)
+//         .skip(parseInt(skip))
+//         .limit(parseInt(limit))
+//         .populate("referredBy")
+//         .sort({ createdAt: -1 })
+//         .hint({ createdAt: -1 });
+
+//       res.status(200).json({
+//         message: "Orders fetched successfully.",
+//         orders,
+//         totalOrders,
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Error fetching orders:", error);
+//     if (!res.headersSent) {
+//       res.status(500).json({
+//         message: "Error fetching orders.",
+//         error: error.message,
+//       });
+//     }
+//   }
 // };
 
 

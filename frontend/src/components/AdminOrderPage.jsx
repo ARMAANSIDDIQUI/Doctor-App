@@ -50,6 +50,7 @@ const AdminOrdersPage = () => {
     // Pagination states
     const [ordersPerPage, setOrdersPerPage] = useState(50);
     const [currentPage, setCurrentPage] = useState(1);
+    const [goToPageInput, setGoToPageInput] = useState(""); // State for "Go to Page" input
 
     // Get paginated orders and total count from Redux store
     const { paginatedOrders, totalOrders, loading: ordersLoading } = useSelector((state) => state.order);
@@ -266,6 +267,18 @@ const AdminOrdersPage = () => {
     const handlePrevPage = () => {
         if (currentPage > 1) {
             setCurrentPage(prevPage => prevPage - 1);
+        }
+    };
+
+    // Handler for "Go to Page" form submission
+    const handleGoToPage = (e) => {
+        e.preventDefault();
+        const pageNumber = Number(goToPageInput);
+        if (pageNumber > 0 && pageNumber <= totalPages) {
+            setCurrentPage(pageNumber);
+            setGoToPageInput("");
+        } else {
+            alert(`Please enter a valid page number between 1 and ${totalPages}`);
         }
     };
 
@@ -499,6 +512,21 @@ const AdminOrdersPage = () => {
                     >
                         Next
                     </Button>
+                    {/* --- NEW: "Go to Page" Input --- */}
+                    <form onSubmit={handleGoToPage} className="flex items-center ml-4 gap-2">
+                        <Input
+                            type="number"
+                            value={goToPageInput}
+                            onChange={(e) => setGoToPageInput(e.target.value)}
+                            placeholder="Go to page"
+                            min="1"
+                            max={totalPages}
+                            className="w-24 text-center"
+                        />
+                        <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700">
+                            Go
+                        </Button>
+                    </form>
                 </div>
 
             </div>

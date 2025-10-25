@@ -59,7 +59,7 @@ const DoctorForm = () => {
       }
       
       // Navigate back after 2 seconds
-      setTimeout(() => navigate('/admin/doctors'), 2000);
+      setTimeout(() => navigate('/admin/doctor'), 2000);
 
     } catch (error) {
       console.error(error);

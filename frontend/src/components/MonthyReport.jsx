@@ -37,6 +37,9 @@ const MonthlyReport = () => {
     ]);
     const [currentPage, setCurrentPage] = useState(1);
     const [ordersPerPage, setOrdersPerPage] = useState(50);
+    // State for "Go to Page" input
+    const [goToPageInput, setGoToPageInput] = useState("");
+
     const { paginatedOrders, totalOrders, loading: ordersLoading } = useSelector((state) => state.order);
     const totalPages = Math.max(1, Math.ceil(totalOrders / ordersPerPage));
 
@@ -221,6 +224,18 @@ const MonthlyReport = () => {
         if (currentPage > 1) setCurrentPage(prevPage => prevPage - 1);
     };
 
+    // Handler for "Go to Page" form submission
+    const handleGoToPage = (e) => {
+        e.preventDefault();
+        const pageNumber = Number(goToPageInput);
+        if (pageNumber > 0 && pageNumber <= totalPages) {
+            setCurrentPage(pageNumber);
+            setGoToPageInput(""); // Clear the input after navigating
+        } else {
+            alert(`Please enter a valid page number between 1 and ${totalPages}`);
+        }
+    };
+
     const handleScroll = () => {
         setShowScrollButton(window.scrollY > 300);
     };
@@ -255,7 +270,7 @@ const MonthlyReport = () => {
 
                 {/* --- MODIFIED: Date input section with combined UI --- */}
                 <div className="flex flex-col space-y-2 relative">
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
                             <Label htmlFor="from-date" className="text-sm font-medium text-gray-700">From Date</Label>
                             <div className="relative">
@@ -317,7 +332,7 @@ const MonthlyReport = () => {
                         </div>
                     )}
                 </div>
-                 {/* Remaining empty grid cell for layout alignment */}
+                {/* Remaining empty grid cell for layout alignment */}
                 <div></div>
             </div>
             
@@ -328,7 +343,7 @@ const MonthlyReport = () => {
                         <RefreshCcw className="w-3.5 h-3.5 text-blue-500" />
                         <span className="text-xs font-medium text-gray-600">Reset Filters</span>
                     </button>
-                     <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                         <Label htmlFor="orders-per-page" className="font-medium text-sm whitespace-nowrap">Show:</Label>
                         <select id="orders-per-page" value={ordersPerPage} onChange={handleOrdersPerPageChange} className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value={10}>10</option>
@@ -355,7 +370,7 @@ const MonthlyReport = () => {
             {message && <p className={`mt-4 text-center font-semibold ${message.includes('error') ? 'text-red-600' : 'text-blue-600'}`}>{message}</p>}
 
             <div className="w-full overflow-x-auto shadow-md rounded-lg">
-                 <table className="w-full min-w-max border-collapse border border-gray-300">
+                <table className="w-full min-w-max border-collapse border border-gray-300">
                     <thead>
                         <tr className="bg-gray-100">
                             <th className="border border-gray-300 p-2 whitespace-nowrap">Serial No</th>
@@ -410,6 +425,21 @@ const MonthlyReport = () => {
                 <Button onClick={handlePrevPage} disabled={currentPage === 1 || ordersLoading || isDownloading} className="bg-gray-300 text-gray-800 disabled:opacity-50">Previous</Button>
                 <span>Page {currentPage} of {totalPages}</span>
                 <Button onClick={handleNextPage} disabled={currentPage >= totalPages || ordersLoading || isDownloading} className="bg-gray-300 text-gray-800 disabled:opacity-50">Next</Button>
+                {/* --- NEW: "Go to Page" Input --- */}
+                <form onSubmit={handleGoToPage} className="flex items-center ml-4 gap-2">
+                    <Input
+                        type="number"
+                        value={goToPageInput}
+                        onChange={(e) => setGoToPageInput(e.target.value)}
+                        placeholder="Go to page"
+                        min="1"
+                        max={totalPages}
+                        className="w-24 text-center"
+                    />
+                    <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700">
+                        Go
+                    </Button>
+                </form>
             </div>
             <button onClick={scrollToTop} className="fixed bottom-4 right-4 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition transform hover:scale-105 z-50" style={{ display: showScrollButton ? 'flex' : 'none' }}>
                 ↑
