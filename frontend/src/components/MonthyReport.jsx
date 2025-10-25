@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import api from "@/common/axios";
 import { format, startOfMonth, endOfMonth, isValid, addDays } from "date-fns";
+import { toast } from "react-toastify";
+
 
 const MonthlyReport = () => {
     // All state and logic hooks remain the same
@@ -139,27 +141,58 @@ const MonthlyReport = () => {
         setMessage("");
     };
 
+    // const getDownloadParams = () => {
+    //     if (downloadAll) {
+    //         return { download: 'true' };
+    //     }
+    //     const params = {
+    //         searchQuery: searchQuery || undefined,
+    //         referredBy: selectedDoctor !== "all" ? selectedDoctor : undefined,
+    //         download: 'true',
+    //     };
+    //     if (startDate && endDate) {
+    //         params.startDate = startDate;
+    //         params.endDate = endDate;
+    //     } else {
+    //         const now = new Date();
+    //         params.startDate = format(startOfMonth(now), 'yyyy-MM-dd');
+    //         params.endDate = format(endOfMonth(now), 'yyyy-MM-dd');
+    //     }
+    //     Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
+    //     return params;
+    // };
+    
+// In MonthlyReport.jsx
+
     const getDownloadParams = () => {
         if (downloadAll) {
-            return { download: 'true' };
+        // If "Download All" is checked, send NO filters
+        return {};
         }
+
+        // Otherwise, send all active filters
         const params = {
-            searchQuery: searchQuery || undefined,
-            referredBy: selectedDoctor !== "all" ? selectedDoctor : undefined,
-            download: 'true',
+        searchQuery: searchQuery || undefined,
+        referredBy: selectedDoctor !== "all" ? selectedDoctor : undefined,
         };
+
+        // --- THIS IS THE NEW LOGIC ---
         if (startDate && endDate) {
-            params.startDate = startDate;
-            params.endDate = endDate;
+        // 1. If user selected a date range, use it
+        params.startDate = startDate;
+        params.endDate = endDate;
         } else {
-            const now = new Date();
-            params.startDate = format(startOfMonth(now), 'yyyy-MM-dd');
-            params.endDate = format(endOfMonth(now), 'yyyy-MM-dd');
+        // 2. DEFAULT: If no date range is selected, use the current month
+        const now = new Date();
+        params.startDate = format(startOfMonth(now), 'yyyy-MM-dd');
+        params.endDate = format(endOfMonth(now), 'yyyy-MM-dd');
         }
+        // --- END OF NEW LOGIC ---
+
+        // Clean up undefined keys
         Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
         return params;
     };
-    
     const handleDownload = async (reportType) => {
         if (isDownloading) return;
         setIsDownloading(true);
@@ -170,27 +203,57 @@ const MonthlyReport = () => {
         
         worker.postMessage({ params, reportType, categories });
 
+        // worker.onmessage = (event) => {
+        //     const { status, data, fileName, message: workerMessage } = event.data;
+        //     if (status === 'success') {
+        //         const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        //         const url = URL.createObjectURL(blob);
+        //         const a = document.createElement('a');
+        //         a.href = url;
+        //         a.download = fileName;
+        //         document.body.appendChild(a);
+        //         a.click();
+        //         document.body.removeChild(a);
+        //         URL.revokeObjectURL(url);
+        //         setMessage("Report downloaded successfully.");
+        //     } else {
+        //         console.error("Web worker failed:", workerMessage);
+        //         setMessage("An error occurred while generating the report.");
+        //     }
+        //     setIsDownloading(false);
+        //     worker.terminate();
+        //     setTimeout(() => setMessage(""), 5000);
+        // };
+
         worker.onmessage = (event) => {
             const { status, data, fileName, message: workerMessage } = event.data;
+            
             if (status === 'success') {
-                const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                const url = URL.createObjectURL(blob);
+                // 'data' IS the Blob, no need to create a new one
+                const blob = data; 
+                const url = URL.createObjectURL(blob); // Create a URL for the Blob
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = fileName;
+                a.download = fileName; // This will be "Detailed_Report.csv" etc.
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                
+                toast.success("Report downloaded successfully."); // Using toast
                 setMessage("Report downloaded successfully.");
+
             } else {
                 console.error("Web worker failed:", workerMessage);
-                setMessage("An error occurred while generating the report.");
+                toast.error(`Download failed: ${workerMessage}`); // Using toast
+                setMessage(`An error occurred: ${workerMessage}`);
             }
+
             setIsDownloading(false);
             worker.terminate();
             setTimeout(() => setMessage(""), 5000);
         };
+
 
         worker.onerror = (error) => {
             console.error("Web worker error:", error);
