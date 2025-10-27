@@ -107,13 +107,18 @@ const MonthlyReport = () => {
         dispatch(fetchCategories()).then((res) => setCategories(res.payload || []));
     }, [dispatch]);
     
+    // **CORRECTED ADJUST DATE LOGIC**
     const adjustDate = (dateString, direction) => {
-        const initialDate = dateString ? new Date(dateString) : new Date();
+        // **FIX:** Append 'T00:00:00' to force parsing as local midnight, not UTC midnight.
+        const initialDate = dateString ? new Date(dateString + 'T00:00:00') : new Date();
+        
         if (!isValid(initialDate)) {
             return dateString;
         }
         const amount = direction === 'increment' ? 1 : -1;
         const newDate = addDays(initialDate, amount);
+        
+        // format() correctly extracts the local date part as 'yyyy-MM-dd'
         return format(newDate, 'yyyy-MM-dd');
     };
 
@@ -145,8 +150,11 @@ const MonthlyReport = () => {
     
     
     const handleShowDatePicker = () => {
-        const sDate = new Date(startDate);
-        const eDate = new Date(endDate);
+        // **FIX:** Ensure that when reading from state for the DateRangePicker, 
+        // we parse the 'YYYY-MM-DD' string into a Date object correctly.
+        const sDate = startDate ? new Date(startDate + 'T00:00:00') : null;
+        const eDate = endDate ? new Date(endDate + 'T00:00:00') : null;
+        
         setDateRange([
             {
                 startDate: isValid(sDate) ? sDate : null,
@@ -159,6 +167,8 @@ const MonthlyReport = () => {
 
     const applyDateFilter = () => {
         const { startDate: pickerStartDate, endDate: pickerEndDate } = dateRange[0];
+        // When setting state from DateRangePicker, the date objects are full Date objects.
+        // format() correctly outputs the local 'yyyy-MM-dd' string.
         if (pickerStartDate) setStartDate(format(pickerStartDate, 'yyyy-MM-dd'));
         if (pickerEndDate) setEndDate(format(pickerEndDate, 'yyyy-MM-dd'));
         setShowDatePicker(false);
@@ -212,6 +222,8 @@ const MonthlyReport = () => {
         setIsDownloading(true);
         setMessage("Preparing report...");
 
+        // NOTE: You need to ensure that excelWorker.js exists and is set up correctly.
+        // For this fix, I assume the worker setup is correct.
         const worker = new Worker(new URL('./excelWorker.js', import.meta.url), { type: 'module' });
         const params = getDownloadParams();
         
@@ -390,7 +402,7 @@ const MonthlyReport = () => {
                                     id="from-date"
                                     type="date"
                                     value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
+                                    onChange={(e) => setStartDate(e.target.value)} // "YYYY-MM-DD" string is kept
                                     className="p-2 w-full pr-8"
                                 />
                                 <div className="absolute inset-y-0 right-0 flex flex-col justify-center pr-2">
@@ -410,7 +422,7 @@ const MonthlyReport = () => {
                                     id="to-date"
                                     type="date"
                                     value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
+                                    onChange={(e) => setEndDate(e.target.value)} // "YYYY-MM-DD" string is kept
                                     className="p-2 w-full pr-8"
                                 />
                                 <div className="absolute inset-y-0 right-0 flex flex-col justify-center pr-2">
