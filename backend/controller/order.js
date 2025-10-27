@@ -3,29 +3,146 @@ const Order = require('../Model/Order');
 const DoctorDB = require('../Model/Doctor');
 const mongoose = require('mongoose');
 
+// const PlaceOrder = async (req, res) => {
+//     console.log("REQ BODY:", req.body);
+
+//     try {
+//         const {
+//             name,
+//             age,
+//             gender,
+//             address,
+//             phoneNo,
+//             referredBy,
+//             category,
+//             subcategory,
+//             fees,
+//             discount = 0,
+//             finalPayment,
+//             paymentMode,
+//             referralFee,
+//             placedBy,
+//             //Added new fields for Online + Cash - Armaan Siddiqui
+//             online = 0,
+//             cash = 0,
+//         } = req.body;
+
+//         // Get today's date in DDMMYYYY format
+//         const today = new Date();
+//         const day = String(today.getDate()).padStart(2, '0');
+//         const month = String(today.getMonth() + 1).padStart(2, '0');
+//         const year = today.getFullYear();
+//         const todayString = `${day}${month}${year}`;
+
+//         // Find and update the counter for today's date
+//         let counter = await Counter.findOne({ date: todayString });
+//         if (!counter) {
+//             // Create a new counter if none exists for today
+//             counter = new Counter({ date: todayString, count: 0 });
+//         }
+
+//         // Increment the count
+//         counter.count += 1;
+//         await counter.save();
+
+//         // Generate the serial number
+//         const serialNo = `${todayString}${String(counter.count).padStart(2, '0')}`;
+
+//         // Check if referredBy is valid and contains a doctor's ID
+//         if (referredBy && referredBy !== '0' && referredBy.toLowerCase() !== 'none') {
+//             const doctor = await DoctorDB.findById(referredBy);
+//             if (doctor) {
+//                 // Calculate the commission to be added to the doctor's total
+//                 const commission = referralFee - discount;
+//                 if (commission > 0) {
+//                     doctor.totalCommission += commission;
+//                     await doctor.save();
+//                 }
+//             }
+//         }
+
+//         // Create a new order
+//         const newOrder = new Order({
+//             serialNo,
+//             name,
+//             age,
+//             gender,
+//             address,
+//             phoneNo,
+//             referredBy,
+//             category,
+//             subcategory,
+//             fees,
+//             discount,
+//             finalPayment,
+//             paymentMode,
+//             referralFee,
+//             placedBy,
+//             //Added new fields for Online + Cash - Armaan Siddiqui
+//             online,
+//             cash,
+//         });
+
+//         // Save the order
+//         await newOrder.save();
+
+//         // Send success response
+//         res.status(201).json({
+//             message: 'Order placed successfully',
+//             order: newOrder,
+//         });
+//     } catch (error) {
+//         console.error('Error placing order:', error);
+//         res.status(500).json({
+//             message: 'Error placing order',
+//             error: error.message,
+//         });
+//     }
+// };
+
+// FetchOrder API to retrieve an order by ID
+
 const PlaceOrder = async (req, res) => {
     console.log("REQ BODY:", req.body);
 
+    // --- NEW LOGIC START: Handle 'Referred By' Assignment ---
+    let { referredBy } = req.body;
+    const { 
+        name, age, gender, address, phoneNo, category, subcategory, 
+        fees, discount = 0, finalPayment, paymentMode, referralFee, placedBy, 
+        online = 0, cash = 0 
+    } = req.body;
+    
+    // Check if referredBy is not set (empty string, null, or undefined) or explicitly set to 'none'
+    if (!referredBy || referredBy.toLowerCase() === 'none') {
+        const NONE_DOCTOR_NAME = 'None';
+        
+        // 1. Try to find the 'None' doctor
+        let noneDoctor = await DoctorDB.findOne({ name: NONE_DOCTOR_NAME });
+
+        if (!noneDoctor) {
+            // 2. If not found, create the 'None' doctor
+            console.log(`Creating default doctor: ${NONE_DOCTOR_NAME}`);
+            noneDoctor = new DoctorDB({
+                name: NONE_DOCTOR_NAME,
+                phoneNo: '0000000000', // Default phone number
+                qualification: 'N/A',
+                address: 'N/A',
+                referralFee: 0,
+                totalCommission: 0,
+            });
+            await noneDoctor.save();
+        }
+        
+        // 3. Assign the 'None' doctor's ID to referredBy
+        referredBy = noneDoctor._id;
+        req.body.referredBy = referredBy; // Ensure the rest of the controller uses the updated ID
+    }
+    // --- NEW LOGIC END ---
+    
     try {
-        const {
-            name,
-            age,
-            gender,
-            address,
-            phoneNo,
-            referredBy,
-            category,
-            subcategory,
-            fees,
-            discount = 0,
-            finalPayment,
-            paymentMode,
-            referralFee,
-            placedBy,
-            //Added new fields for Online + Cash - Armaan Siddiqui
-            online = 0,
-            cash = 0,
-        } = req.body;
+        // The destructuring is simplified above, but the rest of the code remains the same
+        // as the variables (like name, age, etc.) are available from the destructuring in the original file.
 
         // Get today's date in DDMMYYYY format
         const today = new Date();
@@ -48,16 +165,29 @@ const PlaceOrder = async (req, res) => {
         // Generate the serial number
         const serialNo = `${todayString}${String(counter.count).padStart(2, '0')}`;
 
-        // Check if referredBy is valid and contains a doctor's ID
-        if (referredBy && referredBy !== '0' && referredBy.toLowerCase() !== 'none') {
+        // The commission calculation now relies on the assigned 'referredBy' ID
+        // Note: The logic below needs to be adjusted slightly to remove the redundant `referredBy.toLowerCase() !== 'none'` check 
+        // since we guarantee `referredBy` is an ID if it was "none".
+        
+        // Check if referredBy is valid (it should be, but let's check for truthiness and proper ID format)
+        // We ensure a doctor exists before trying to update commission.
+        if (referredBy) {
+            // Since referredBy is now guaranteed to be an ID (either selected or 'None' doctor's ID)
             const doctor = await DoctorDB.findById(referredBy);
+            
             if (doctor) {
-                // Calculate the commission to be added to the doctor's total
-                const commission = referralFee - discount;
-                if (commission > 0) {
-                    doctor.totalCommission += commission;
-                    await doctor.save();
+                // Only calculate commission if the doctor is NOT the "None" doctor
+                if (doctor.name !== 'None') {
+                     // Calculate the commission to be added to the doctor's total
+                    const commission = referralFee - discount;
+                    if (commission > 0) {
+                        doctor.totalCommission += commission;
+                        await doctor.save();
+                    }
                 }
+            } else {
+                // This scenario should rarely happen if the initial logic is correct, but acts as a safeguard.
+                console.warn(`ReferredBy ID ${referredBy} is set, but no doctor was found in the DB.`);
             }
         }
 
@@ -69,7 +199,7 @@ const PlaceOrder = async (req, res) => {
             gender,
             address,
             phoneNo,
-            referredBy,
+            referredBy, // This now holds the ID of the selected doctor or the 'None' doctor
             category,
             subcategory,
             fees,
@@ -78,7 +208,6 @@ const PlaceOrder = async (req, res) => {
             paymentMode,
             referralFee,
             placedBy,
-            //Added new fields for Online + Cash - Armaan Siddiqui
             online,
             cash,
         });
@@ -100,7 +229,6 @@ const PlaceOrder = async (req, res) => {
     }
 };
 
-// FetchOrder API to retrieve an order by ID
 const fetchOrder = async (req, res) => {
     try {
         const { orderId } = req.params; // Assuming the order ID is passed as a route parameter

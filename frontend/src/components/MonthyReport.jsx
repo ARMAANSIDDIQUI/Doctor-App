@@ -7,20 +7,40 @@ import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { RefreshCcw, ChevronUp, ChevronDown } from 'lucide-react';
+import { RefreshCcw, ChevronUp, ChevronDown, Check, ChevronsUpDown, Search } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import api from "@/common/axios";
 import { format, startOfMonth, endOfMonth, isValid, addDays } from "date-fns";
 import { toast } from "react-toastify";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 
 
 const MonthlyReport = () => {
-    // All state and logic hooks remain the same
     const dispatch = useDispatch();
     const [doctors, setDoctors] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
+    
+    // State for Popover control
+    const [openDoctorPopover, setOpenDoctorPopover] = useState(false);
+    
+    // FAST STATE: Controls the input's value for filtering doctors (stable typing)
     const [searchQueryDoc, setSearchQueryDoc] = useState("");
+    // SLOW STATE: This state is used for the actual filtering (debounced)
+    const [debouncedSearchQueryDoc, setDebouncedSearchQueryDoc] = useState("");
+    
     const [selectedDoctor, setSelectedDoctor] = useState("all");
     const [categories, setCategories] = useState([]);
     const [showScrollButton, setShowScrollButton] = useState(false);
@@ -39,13 +59,24 @@ const MonthlyReport = () => {
     ]);
     const [currentPage, setCurrentPage] = useState(1);
     const [ordersPerPage, setOrdersPerPage] = useState(50);
-    // State for "Go to Page" input
     const [goToPageInput, setGoToPageInput] = useState("");
 
     const { paginatedOrders, totalOrders, loading: ordersLoading } = useSelector((state) => state.order);
     const totalPages = Math.max(1, Math.ceil(totalOrders / ordersPerPage));
 
-    // All functions remain the same
+    // --- DEBOUNCE EFFECT ---
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearchQueryDoc(searchQueryDoc);
+        }, 300); // 300ms debounce delay
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [searchQueryDoc]); 
+    // --- END DEBOUNCE EFFECT ---
+
+
     const fetchReportData = useCallback(() => {
         const params = {
             skip: (currentPage - 1) * ordersPerPage,
@@ -86,55 +117,33 @@ const MonthlyReport = () => {
         return format(newDate, 'yyyy-MM-dd');
     };
 
-// In MonthlyReport.jsx
+    const groupedData = useMemo(() => {
+        if (!paginatedOrders) return [];
 
-  const groupedData = useMemo(() => {
-    if (!paginatedOrders) return [];
+        const NONE_DOCTOR_PLACEHOLDER = { _id: 'NONE_GROUP', name: 'None', phoneNo: 'N/A', address: 'N/A' };
 
-    // 1. Define a placeholder object for the "None" group
-    // This provides the "doctor" info for the table row
-    const NONE_DOCTOR_PLACEHOLDER = {
-        _id: 'NONE_GROUP', // A unique, stable key for the group
-        name: 'None',      // The name to display in the table
-        phoneNo: 'N/A',
-        address: 'N/A'
-    };
-
-    return Object.values(paginatedOrders.reduce((acc, order) => {
-        
-        // This is 'undefined' for "None" orders, and a real ID for others
-        const doctorId = order.referredBy?._id;
-
-        if (doctorId) {
-            // --- This is a normal, populated doctor ---
-            if (!acc[doctorId]) {
-                acc[doctorId] = { doctor: order.referredBy, orders: [] };
+        return Object.values(paginatedOrders.reduce((acc, order) => {
+            const doctorId = order.referredBy?._id;
+            if (doctorId) {
+                if (!acc[doctorId]) { acc[doctorId] = { doctor: order.referredBy, orders: [] }; }
+                acc[doctorId].orders.push(order);
+            } else {
+                const noneKey = NONE_DOCTOR_PLACEHOLDER._id;
+                if (!acc[noneKey]) { acc[noneKey] = { doctor: NONE_DOCTOR_PLACEHOLDER, orders: [] }; }
+                acc[noneKey].orders.push(order);
             }
-            acc[doctorId].orders.push(order);
-        } else {
-            // --- THIS IS THE FIX ---
-            // This is an unpopulated (e.g., "None") order
-            
-            // 2. Use the placeholder's ID as the key
-            const noneKey = NONE_DOCTOR_PLACEHOLDER._id; 
+            return acc;
+        }, {}));
+    }, [paginatedOrders]);
 
-            // 3. If the "None" group doesn't exist yet, create it
-            if (!acc[noneKey]) {
-                acc[noneKey] = { doctor: NONE_DOCTOR_PLACEHOLDER, orders: [] };
-            }
-            
-            // 4. Add the order to the "None" group
-            acc[noneKey].orders.push(order);
-        }
-        
-        return acc;
-    }, {}));
-  }, [paginatedOrders]);
-
-    const filteredDoctors = doctors.filter((doctor) =>
-        doctor.name && typeof doctor.name === 'string' && doctor.name.toLowerCase().includes(searchQueryDoc.toLowerCase())
-    );
-
+    // Filter calculation uses the SLOW debounced state
+    const filteredDoctors = useMemo(() => {
+        return doctors.filter((doctor) =>
+            doctor.name && typeof doctor.name === 'string' && doctor.name.toLowerCase().includes(debouncedSearchQueryDoc.toLowerCase())
+        );
+    }, [doctors, debouncedSearchQueryDoc]); 
+    
+    
     const handleShowDatePicker = () => {
         const sDate = new Date(startDate);
         const eDate = new Date(endDate);
@@ -164,7 +173,8 @@ const MonthlyReport = () => {
 
     const resetAllFilters = () => {
         setSearchQuery("");
-        setSearchQueryDoc("");
+        setSearchQueryDoc(""); 
+        setDebouncedSearchQueryDoc("");
         setSelectedDoctor("all");
         setStartDate("");
         setEndDate("");
@@ -174,58 +184,29 @@ const MonthlyReport = () => {
         setMessage("");
     };
 
-    // const getDownloadParams = () => {
-    //     if (downloadAll) {
-    //         return { download: 'true' };
-    //     }
-    //     const params = {
-    //         searchQuery: searchQuery || undefined,
-    //         referredBy: selectedDoctor !== "all" ? selectedDoctor : undefined,
-    //         download: 'true',
-    //     };
-    //     if (startDate && endDate) {
-    //         params.startDate = startDate;
-    //         params.endDate = endDate;
-    //     } else {
-    //         const now = new Date();
-    //         params.startDate = format(startOfMonth(now), 'yyyy-MM-dd');
-    //         params.endDate = format(endOfMonth(now), 'yyyy-MM-dd');
-    //     }
-    //     Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
-    //     return params;
-    // };
-    
-// In MonthlyReport.jsx
-
     const getDownloadParams = () => {
         if (downloadAll) {
-        // If "Download All" is checked, send NO filters
-        return {};
+            return {};
         }
 
-        // Otherwise, send all active filters
         const params = {
-        searchQuery: searchQuery || undefined,
-        referredBy: selectedDoctor !== "all" ? selectedDoctor : undefined,
+            searchQuery: searchQuery || undefined,
+            referredBy: selectedDoctor !== "all" ? selectedDoctor : undefined,
         };
 
-        // --- THIS IS THE NEW LOGIC ---
         if (startDate && endDate) {
-        // 1. If user selected a date range, use it
-        params.startDate = startDate;
-        params.endDate = endDate;
+            params.startDate = startDate;
+            params.endDate = endDate;
         } else {
-        // 2. DEFAULT: If no date range is selected, use the current month
-        const now = new Date();
-        params.startDate = format(startOfMonth(now), 'yyyy-MM-dd');
-        params.endDate = format(endOfMonth(now), 'yyyy-MM-dd');
+            const now = new Date();
+            params.startDate = format(startOfMonth(now), 'yyyy-MM-dd');
+            params.endDate = format(endOfMonth(now), 'yyyy-MM-dd');
         }
-        // --- END OF NEW LOGIC ---
 
-        // Clean up undefined keys
         Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
         return params;
     };
+    
     const handleDownload = async (reportType) => {
         if (isDownloading) return;
         setIsDownloading(true);
@@ -236,49 +217,26 @@ const MonthlyReport = () => {
         
         worker.postMessage({ params, reportType, categories });
 
-        // worker.onmessage = (event) => {
-        //     const { status, data, fileName, message: workerMessage } = event.data;
-        //     if (status === 'success') {
-        //         const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        //         const url = URL.createObjectURL(blob);
-        //         const a = document.createElement('a');
-        //         a.href = url;
-        //         a.download = fileName;
-        //         document.body.appendChild(a);
-        //         a.click();
-        //         document.body.removeChild(a);
-        //         URL.revokeObjectURL(url);
-        //         setMessage("Report downloaded successfully.");
-        //     } else {
-        //         console.error("Web worker failed:", workerMessage);
-        //         setMessage("An error occurred while generating the report.");
-        //     }
-        //     setIsDownloading(false);
-        //     worker.terminate();
-        //     setTimeout(() => setMessage(""), 5000);
-        // };
-
         worker.onmessage = (event) => {
             const { status, data, fileName, message: workerMessage } = event.data;
             
             if (status === 'success') {
-                // 'data' IS the Blob, no need to create a new one
                 const blob = data; 
-                const url = URL.createObjectURL(blob); // Create a URL for the Blob
+                const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = fileName; // This will be "Detailed_Report.csv" etc.
+                a.download = fileName;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 
-                toast.success("Report downloaded successfully."); // Using toast
+                toast.success("Report downloaded successfully.");
                 setMessage("Report downloaded successfully.");
 
             } else {
                 console.error("Web worker failed:", workerMessage);
-                toast.error(`Download failed: ${workerMessage}`); // Using toast
+                toast.error(`Download failed: ${workerMessage}`);
                 setMessage(`An error occurred: ${workerMessage}`);
             }
 
@@ -320,13 +278,12 @@ const MonthlyReport = () => {
         if (currentPage > 1) setCurrentPage(prevPage => prevPage - 1);
     };
 
-    // Handler for "Go to Page" form submission
     const handleGoToPage = (e) => {
         e.preventDefault();
         const pageNumber = Number(goToPageInput);
         if (pageNumber > 0 && pageNumber <= totalPages) {
             setCurrentPage(pageNumber);
-            setGoToPageInput(""); // Clear the input after navigating
+            setGoToPageInput("");
         } else {
             alert(`Please enter a valid page number between 1 and ${totalPages}`);
         }
@@ -350,21 +307,80 @@ const MonthlyReport = () => {
             <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
                 <div className="flex flex-col space-y-2">
                     <Label htmlFor="doctor" className="text-lg font-semibold text-gray-700">Select Doctor</Label>
-                    <Select value={selectedDoctor} onValueChange={handleDoctorChange}>
-                        <SelectTrigger id="doctor" className="w-full"><SelectValue placeholder="Select a doctor" /></SelectTrigger>
-                        <SelectContent className="bg-white border border-gray-300 shadow-md rounded-lg max-h-60">
-                            <div className="sticky top-0 bg-white p-2 border-b border-gray-300 z-10">
-                                <Input type="text" placeholder="Search doctor" value={searchQueryDoc} onChange={(e) => setSearchQueryDoc(e.target.value)} className="border border-gray-300 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                            </div>
-                            <div className="max-h-48 overflow-auto">
-                                <SelectItem value="all">All Doctors</SelectItem>
-                                {filteredDoctors.map((doctor) => (<SelectItem key={doctor._id} value={doctor._id}>{doctor.name}</SelectItem>))}
-                            </div>
-                        </SelectContent>
-                    </Select>
+                    
+                    {/* Popover Structure for stable input */}
+                    <Popover open={openDoctorPopover} onOpenChange={setOpenDoctorPopover}>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={openDoctorPopover}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex justify-between items-center"
+                            >
+                                <span className="text-left">
+                                {selectedDoctor === "all"
+                                    ? "All Doctors"
+                                    : doctors.find((doctor) => doctor._id === selectedDoctor)?.name
+                                    ? doctors.find((doctor) => doctor._id === selectedDoctor)?.name
+                                    : "Select Doctor..."}
+                                </span>
+                                <ChevronsUpDown className="opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        {/* 💡 FIX: Set width to match the trigger button using the Radix CSS variable */}
+                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0"> 
+                            <Command>
+                                {/* CommandInput handles the stable input field */}
+                                <CommandInput 
+                                    placeholder="Search doctor..." 
+                                    value={searchQueryDoc} 
+                                    onValueChange={setSearchQueryDoc} 
+                                />
+                                <CommandList>
+                                    <CommandItem
+                                        value="all-doctors-option"
+                                        onSelect={() => {
+                                            handleDoctorChange("all");
+                                            setOpenDoctorPopover(false);
+                                            setSearchQueryDoc(""); // Clear search when option is selected
+                                        }}
+                                    >
+                                        All Doctors
+                                    </CommandItem>
+                                    
+                                    {filteredDoctors.length === 0 ? (
+                                        <CommandEmpty>No doctor found.</CommandEmpty>
+                                    ) : (
+                                        <CommandGroup>
+                                            {filteredDoctors.map((doctor) => (
+                                                <CommandItem
+                                                    key={doctor._id}
+                                                    value={doctor.name} 
+                                                    onSelect={() => {
+                                                        handleDoctorChange(doctor._id);
+                                                        setOpenDoctorPopover(false);
+                                                        setSearchQueryDoc("");
+                                                    }}
+                                                >
+                                                    {doctor.name}
+                                                    <Check
+                                                        className={`ml-auto ${
+                                                            selectedDoctor === doctor._id ? "opacity-100" : "opacity-0"
+                                                        }`}
+                                                    />
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    )}
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                    {/* End Popover Structure */}
+
                 </div>
 
-                {/* --- MODIFIED: Date input section with combined UI --- */}
+                {/* --- Date Input Section with combined UI --- */}
                 <div className="flex flex-col space-y-2 relative">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
@@ -375,7 +391,7 @@ const MonthlyReport = () => {
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="p-2 w-full pr-8" // Padding to make space for buttons
+                                    className="p-2 w-full pr-8"
                                 />
                                 <div className="absolute inset-y-0 right-0 flex flex-col justify-center pr-2">
                                     <button onClick={() => setStartDate(d => adjustDate(d, 'increment'))} className="cursor-pointer h-1/2 hover:bg-gray-100 rounded-tr-md">
@@ -395,7 +411,7 @@ const MonthlyReport = () => {
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
-                                    className="p-2 w-full pr-8" // Padding to make space for buttons
+                                    className="p-2 w-full pr-8"
                                 />
                                 <div className="absolute inset-y-0 right-0 flex flex-col justify-center pr-2">
                                     <button onClick={() => setEndDate(d => adjustDate(d, 'increment'))} className="cursor-pointer h-1/2 hover:bg-gray-100 rounded-tr-md">
@@ -432,7 +448,6 @@ const MonthlyReport = () => {
                 <div></div>
             </div>
             
-            {/* ... Rest of the component is unchanged ... */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
                 <div className="flex items-center gap-4 w-full sm:w-auto">
                     <button onClick={resetAllFilters} className="flex items-center justify-center space-x-1 p-1.5 border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
@@ -521,7 +536,6 @@ const MonthlyReport = () => {
                 <Button onClick={handlePrevPage} disabled={currentPage === 1 || ordersLoading || isDownloading} className="bg-gray-300 text-gray-800 disabled:opacity-50">Previous</Button>
                 <span>Page {currentPage} of {totalPages}</span>
                 <Button onClick={handleNextPage} disabled={currentPage >= totalPages || ordersLoading || isDownloading} className="bg-gray-300 text-gray-800 disabled:opacity-50">Next</Button>
-                {/* --- NEW: "Go to Page" Input --- */}
                 <form onSubmit={handleGoToPage} className="flex items-center ml-4 gap-2">
                     <Input
                         type="number"
