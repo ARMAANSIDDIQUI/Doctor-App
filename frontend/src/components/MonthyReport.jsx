@@ -86,17 +86,50 @@ const MonthlyReport = () => {
         return format(newDate, 'yyyy-MM-dd');
     };
 
-    const groupedData = useMemo(() => {
-        if (!paginatedOrders) return [];
-        return Object.values(paginatedOrders.reduce((acc, order) => {
-            const doctorId = order.referredBy?._id;
-            if (doctorId) {
-                if (!acc[doctorId]) acc[doctorId] = { doctor: order.referredBy, orders: [] };
-                acc[doctorId].orders.push(order);
+// In MonthlyReport.jsx
+
+  const groupedData = useMemo(() => {
+    if (!paginatedOrders) return [];
+
+    // 1. Define a placeholder object for the "None" group
+    // This provides the "doctor" info for the table row
+    const NONE_DOCTOR_PLACEHOLDER = {
+        _id: 'NONE_GROUP', // A unique, stable key for the group
+        name: 'None',      // The name to display in the table
+        phoneNo: 'N/A',
+        address: 'N/A'
+    };
+
+    return Object.values(paginatedOrders.reduce((acc, order) => {
+        
+        // This is 'undefined' for "None" orders, and a real ID for others
+        const doctorId = order.referredBy?._id;
+
+        if (doctorId) {
+            // --- This is a normal, populated doctor ---
+            if (!acc[doctorId]) {
+                acc[doctorId] = { doctor: order.referredBy, orders: [] };
             }
-            return acc;
-        }, {}));
-    }, [paginatedOrders]);
+            acc[doctorId].orders.push(order);
+        } else {
+            // --- THIS IS THE FIX ---
+            // This is an unpopulated (e.g., "None") order
+            
+            // 2. Use the placeholder's ID as the key
+            const noneKey = NONE_DOCTOR_PLACEHOLDER._id; 
+
+            // 3. If the "None" group doesn't exist yet, create it
+            if (!acc[noneKey]) {
+                acc[noneKey] = { doctor: NONE_DOCTOR_PLACEHOLDER, orders: [] };
+            }
+            
+            // 4. Add the order to the "None" group
+            acc[noneKey].orders.push(order);
+        }
+        
+        return acc;
+    }, {}));
+  }, [paginatedOrders]);
 
     const filteredDoctors = doctors.filter((doctor) =>
         doctor.name && typeof doctor.name === 'string' && doctor.name.toLowerCase().includes(searchQueryDoc.toLowerCase())

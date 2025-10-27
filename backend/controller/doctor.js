@@ -1,5 +1,6 @@
 const DoctorDB = require("../Model/Doctor");
 const Order = require("../Model/Order");
+const mongoose = require('mongoose'); // <--- CRITICAL: Mongoose import needed for explicit casting
 
 // const AddDoctor = async (req, res) => {
 //   const { name, phoneNo, address, totalCommission } = req.body;
@@ -136,7 +137,7 @@ const DeleteDoctor = async (req, res) => {
     const { doctorId } = req.params;
 
     try {
-        // 1. Find the doctor to be deleted
+        // 1. Find the doctor to be deleted (This implicitly casts doctorId to ObjectId)
         const doctorToDelete = await DoctorDB.findById(doctorId);
         if (!doctorToDelete) {
             return res.status(404).json({
@@ -145,15 +146,16 @@ const DeleteDoctor = async (req, res) => {
             });
         }
 
-        // 2. Find or create the "None" doctor placeholder
-        let noneDoctor = await DoctorDB.findOne({ name: 'None' });
+        // 2. Find or create the "None" doctor placeholder (using case-insensitive search for safety)
+        let noneDoctor = await DoctorDB.findOne({ name: /^None$/i });
         
         if (!noneDoctor) {
             console.log("Placeholder doctor 'None' not found. Creating a new one.");
             noneDoctor = await DoctorDB.create({
                 name: 'None',
                 phoneNo: '0',
-                address: 'NA'
+                address: 'NA',
+                totalCommission: 0 // Added for schema consistency
             });
             if (!noneDoctor) {
                 const errorMessage = "Failed to create placeholder doctor 'None'. Cannot proceed with deletion.";
@@ -167,9 +169,16 @@ const DeleteDoctor = async (req, res) => {
         
         const noneDoctorId = noneDoctor._id;
 
+        // CRITICAL FIX: Force the string doctorId into a true Mongoose ObjectId object
+        let targetDoctorId = doctorId;
+        if (mongoose.Types.ObjectId.isValid(doctorId)) {
+            targetDoctorId = new mongoose.Types.ObjectId(doctorId);
+        }
+
         // 3. Update all orders associated with the doctor to be deleted
+        // This query now uses the explicitly cast ObjectId, ensuring a match.
         await Order.updateMany(
-            { referredBy: doctorId },
+            { referredBy: targetDoctorId }, // <-- Use the forced ObjectId
             { $set: { referredBy: noneDoctorId } }
         );
 
@@ -179,7 +188,7 @@ const DeleteDoctor = async (req, res) => {
         if (!deletedDoctor) {
             return res.status(404).json({
                 success: false,
-                message: "Doctor not found",
+                message: "Doctor not found (already reassigned orders)",
             });
         }
 
@@ -234,18 +243,30 @@ const GetDoctorById = async (req, res) => {
   // Get all doctors
   const GetAllDoctors = async (req, res) => {
     try {
-      const doctors = await DoctorDB.find();
+      // 1. Check for the includeNone query parameter
+      const { includeNone } = req.query;
+
+      // 2. Set up the query
+      let query = {};
+      if (includeNone !== 'true') {
+        // DEFAULT: Filter out the "None" doctor (case-insensitive)
+        query.name = { $not: /^None$/i };
+      }
+      // If includeNone === 'true', query remains {} and will fetch all doctors.
+      
+      const doctors = await DoctorDB.find(query); // 3. Execute the query
   
-      if (!doctors || doctors.length === 0) {
-        return res.status(404).json({
+      // Returning an empty array is valid, so we only check for a database error
+      if (!doctors) {
+        return res.status(500).json({
           success: false,
-          message: "No doctors found",
+          message: "An error occurred while fetching doctors",
         });
       }
   
       res.status(200).json({
         success: true,
-        doctors,
+        doctors, // This will be [] if no doctors match, which is correct
       });
     } catch (e) {
       console.error(e);
@@ -258,7 +279,8 @@ const GetDoctorById = async (req, res) => {
 
   const fetchAllDoctorsFromDB = async () => {
   try {
-    const doctors = await DoctorDB.find();
+    // This function is used internally, so it should filter "None" by default
+    const doctors = await DoctorDB.find({ name: { $not: /^None$/i } });
     if (!doctors || doctors.length === 0) {
       throw new Error("No doctors found");
     }
@@ -274,13 +296,14 @@ const GetDoctorById = async (req, res) => {
 // Added New Controller for DOctor count-Armaan Siddiqui
 /**
  * @description: Fetches the total count of doctors.
- * @param {object} req - The request object.
+ * @param {object} req - The request object,
  * @param {object} res - The response object.
  * @returns {object} - JSON response containing the total doctor count.
  */
 const getTotalDoctorsCount = async (req, res) => {
   try {
-    const totalDoctors = await DoctorDB.countDocuments();
+    // Filter out the "None" doctor from the count by default
+    const totalDoctors = await DoctorDB.countDocuments({ name: { $not: /^None$/i } });
 
     res.status(200).json({
       message: 'Total doctor count fetched successfully.',
