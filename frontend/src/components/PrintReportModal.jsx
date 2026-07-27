@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { useModal } from '../context/ModalContext';
 
 const PrintReportModal = ({ isOpen, onClose, orderDetails, doctorDetails }) => {
+  const { showAlert } = useModal();
   const [loading, setLoading] = useState(false); // Armaan Siddiqui: To show loading status during PDF generation
 
   // Armaan Siddiqui: Return nothing if modal is closed or order data not available
@@ -128,7 +130,11 @@ const PrintReportModal = ({ isOpen, onClose, orderDetails, doctorDetails }) => {
       setTimeout(() => onClose(), 500);
     } catch (err) {
       console.error('PDF error:', err);
-      alert('Error generating PDF. Please try again.');
+      showAlert({
+        title: 'Error Generating PDF',
+        message: 'There was an issue generating your PDF report. Please try again.',
+        type: 'danger'
+      });
     } finally {
       setLoading(false); // Armaan Siddiqui: Reset loading state
     }

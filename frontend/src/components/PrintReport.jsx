@@ -7,8 +7,10 @@ import { FilePenLine } from 'lucide-react';
 import ModalEditForm from './ModalEditForm';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { StandardFonts } from 'pdf-lib';
+import { useModal } from '../context/ModalContext';
 
 const PrintReport = () => {
+    const { showAlert } = useModal();
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
@@ -201,7 +203,11 @@ const PrintReport = () => {
             }, 500);
         } catch (error) {
             console.error('Error generating PDF:', error);
-            alert(`An error occurred while generating the PDF: ${error.message}. Please try again.`);
+            showAlert({
+                title: 'PDF Generation Error',
+                message: `An error occurred while generating the PDF: ${error.message}. Please try again.`,
+                type: 'danger'
+            });
         } finally {
             setLoading(false);
         }

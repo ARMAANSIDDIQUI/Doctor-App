@@ -15,9 +15,12 @@ import { toast } from "react-toastify";
 import { placeOrder } from '../../store/order';
 import { useNavigate } from "react-router-dom";
 import ModalEditForms from "../ModalEditForms";
-import api from '@/common/axios';;
+import api from '@/common/axios';
+import { useModal } from "../../context/ModalContext";
+import TableScrollContainer from "@/components/ui/TableScrollContainer";
 
 const Unbilled = () => {
+  const { showConfirm } = useModal();
   const dispatch = useDispatch();
   const { orders, loading, error } = useSelector((state) => state.unbilled);
   const navigate = useNavigate();
@@ -94,7 +97,11 @@ const Unbilled = () => {
   };
 
   const handleDeleteOrder = async (orderId) => {
-    const confirmation = window.confirm("Are you sure you want to delete this unbilled order?");
+    const confirmation = await showConfirm({
+      title: 'Delete Unbilled Order',
+      message: 'Are you sure you want to delete this unbilled order?',
+      type: 'danger'
+    });
     if (confirmation) {
       try {
         const result = await dispatch(deleteUnbilled(orderId));
@@ -113,7 +120,11 @@ const Unbilled = () => {
   };
 
   const handleDeleteSelected = async () => {
-    const confirmation = window.confirm("Are you sure you want to delete the selected orders?");
+    const confirmation = await showConfirm({
+      title: 'Delete Selected Orders',
+      message: `Are you sure you want to delete ${selectedOrders.length} selected unbilled orders?`,
+      type: 'danger'
+    });
     if (confirmation) {
       try {
         await Promise.all(
@@ -171,144 +182,154 @@ const Unbilled = () => {
   };
 
   return (
-    <div className="flex flex-col p-8 space-y-8 mt-16 bg-gray-50 min-h-screen">
-      <div className="w-full max-w-full bg-white shadow-lg rounded-lg p-6">
-        <h1 className="text-3xl font-semibold text-gray-800 mb-6">Unbilled Transactions</h1>
-
-        {/* Search Bar */}
-        <div className="mb-6">
-          <Input
-            type="text"
-            placeholder="Search by name, doctor, or serial no..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+    <div className="min-h-screen bg-slate-50 mt-16 py-8 px-4 sm:px-8 w-full max-w-full">
+      <div className="w-full max-w-full space-y-6">
+        {/* Header Card */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200/60">
+                Pending Settlements
+              </span>
+            </div>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-2">Unbilled Transactions</h1>
+            <p className="text-xs text-slate-500 mt-1">Manage hold cases, convert to paid orders, or bulk purge</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => setShowDateRange(!showDateRange)}
+              variant="outline"
+              className="text-xs font-semibold"
+            >
+              {showDateRange ? "Hide Date Filter" : "Filter by Date Range"}
+            </Button>
+            {selectedOrders.length > 0 && (
+              <Button
+                variant="destructive"
+                className="text-xs font-semibold"
+                onClick={handleDeleteSelected}
+              >
+                Delete Selected ({selectedOrders.length})
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Date Range Filter */}
-        <div className="mb-4">
-          <Button
-            onClick={() => setShowDateRange(!showDateRange)}
-            className="bg-blue-600 text-white mb-6"
-          >
-            {showDateRange ? "Hide Date Range Filter" : "Show Date Range Filter"}
-          </Button>
-        </div>
-
+        {/* Date Range Picker Overlay */}
         {showDateRange && (
-          <div className="mb-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-md space-y-4 animate-in fade-in">
             <DateRangePicker
               ranges={[selectedDateRange]}
               onChange={item => setSelectedDateRange(item.selection)}
               locale={enGB}
             />
-            <div className="mt-4">
+            <div className="flex gap-3">
               <Button
-                onClick={() => {
-                  setFilterApplied(true);
-                  setShowDateRange(false);
-                }}
-                className="bg-blue-600 text-white mr-4"
+                onClick={() => { setFilterApplied(true); setShowDateRange(false); }}
+                variant="default"
+                className="text-xs font-semibold"
               >
-                Apply Filter
+                Apply Date Filter
               </Button>
               <Button
                 onClick={resetDateFilter}
-                className="bg-red-600 text-white"
+                variant="secondary"
+                className="text-xs font-semibold"
               >
-                Remove Filter
+                Clear Filter
               </Button>
             </div>
           </div>
         )}
 
-        {/* Delete Selected Button */}
-        {selectedOrders.length > 0 && (
-          <div className="mt-4 mb-4">
-            <Button
-              className="bg-red-600 text-white"
-              onClick={handleDeleteSelected}
-            >
-              Delete Selected Orders ({selectedOrders.length})
-            </Button>
+        {/* Table Container */}
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="w-full sm:w-80">
+              <Input
+                type="text"
+                placeholder="Search patient, doctor, or serial no..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="text-xs font-semibold text-slate-500">
+              Showing <span className="font-bold text-slate-900">{filteredOrders.length}</span> unbilled orders
+            </div>
           </div>
-        )}
 
-        {/* Orders Table */}
-        <table className="min-w-full table-auto border-collapse border border-gray-300">
-          <thead>
-            <tr className="bg-gray-100 text-gray-600">
-              <th className="border p-2 text-left">
-                <input
-                  type="checkbox"
-                  checked={selectAll}
-                  onChange={handleSelectAll}
-                  className="form-checkbox h-5 w-5 text-blue-600"
-                />
-              </th>
-              <th className="border p-2 text-left">Serial No</th>
-              <th className="border p-2 text-left">Doctor Ref</th>
-              <th className="border p-2 text-left">Date</th>
-              <th className="border p-2 text-left">Patient Name</th>
-              <th className="border p-2 text-left">Category</th>
-              <th className="border p-2 text-left">SubCategory</th>
-              <th className="border p-2 text-left">Amount</th>
-              <th className="border p-2 text-left">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan="9" className="text-center py-4">Loading...</td>
-              </tr>
-            ) : filteredOrders.length > 0 ? (
-              filteredOrders.map(order => {
-                const doctor = doctors.find(doc => doc._id === order.referredBy);
-                return (
-                  <tr key={order._id} className="hover:bg-gray-50">
-                    <td className="border p-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedOrders.includes(order._id)}
-                        onChange={() => handleSelectOrder(order._id)}
-                        className="form-checkbox h-5 w-5 text-blue-600"
-                      />
-                    </td>
-                    <td className="border p-2">{order.serialNo}</td>
-                   
-                    <td className="border p-2">{doctor ? doctor.name : "None"}</td>
-                    <td className="border p-2">
-                      {new Date(order.createdAt).toLocaleDateString('en-GB')}
-                    </td>
-                    <td className="border p-2">{order.name}</td>
-                    <td className="border p-2">{order.category}</td>
-                    <td className="border p-2">{order.subcategory}</td>
-                    <td className="border p-2">{order.finalPayment}</td>
-                    <td className="border p-2">
-                      <div className="flex space-x-2">
-                        <Button onClick={() => setSelectedOrder(order)}>View</Button>
-                        <Button onClick={() => setEditOrderData(order)}>Edit</Button>
-                        <Button 
-                          className="bg-red-600 text-white"
-                          onClick={() => handleDeleteOrder(order._id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
+          <TableScrollContainer>
+            <table className="w-full text-left border-collapse min-w-max">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-600 text-xs font-bold uppercase tracking-wider">
+                  <th className="py-3.5 px-4 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectAll}
+                      onChange={handleSelectAll}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                    />
+                  </th>
+                  <th className="py-3.5 px-4">Serial No</th>
+                  <th className="py-3.5 px-4">Doctor Ref</th>
+                  <th className="py-3.5 px-4">Date</th>
+                  <th className="py-3.5 px-4">Patient Name</th>
+                  <th className="py-3.5 px-4">Category</th>
+                  <th className="py-3.5 px-4">SubCategory</th>
+                  <th className="py-3.5 px-4">Amount</th>
+                  <th className="py-3.5 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                {loading ? (
+                  <tr>
+                    <td colSpan="9" className="text-center py-8 text-slate-400 font-medium">Loading unbilled orders...</td>
+                  </tr>
+                ) : filteredOrders.length > 0 ? (
+                  filteredOrders.map(order => {
+                    const doctor = doctors.find(doc => doc._id === order.referredBy);
+                    return (
+                      <tr key={order._id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-4 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedOrders.includes(order._id)}
+                            onChange={() => handleSelectOrder(order._id)}
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                          />
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{order.serialNo}</td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-800">{doctor ? doctor.name : "None"}</td>
+                        <td className="py-3.5 px-4 text-slate-500 text-xs">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-900">{order.name}</td>
+                        <td className="py-3.5 px-4">
+                          <span className="bg-indigo-50 text-indigo-700 font-semibold text-xs px-2.5 py-1 rounded-full border border-indigo-200/60">
+                            {order.category}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600">{order.subcategory}</td>
+                        <td className="py-3.5 px-4 font-extrabold text-slate-900">₹{order.finalPayment}</td>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setSelectedOrder(order)}>View</Button>
+                            <Button size="sm" variant="secondary" onClick={() => setEditOrderData(order)}>Edit</Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleDeleteOrder(order._id)}>Delete</Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="9" className="text-center py-10 text-slate-400 text-sm font-medium">
+                      No unbilled orders found.
                     </td>
                   </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan="9" className="text-center py-4 text-gray-500">
-                  No unbilled orders found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                )}
+              </tbody>
+            </table>
+          </TableScrollContainer>
+        </div>
       </div>
 
       {/* Modals */}

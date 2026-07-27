@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchDoctors } from "../store/doctor";
 import api from '@/common/axios';
 import { ShieldAlert, Trash2, X } from 'lucide-react'; // Added icons
+import TableScrollContainer from "@/components/ui/TableScrollContainer";
 
 const Doctor = () => {
   const navigate = useNavigate();
@@ -73,89 +74,97 @@ const Doctor = () => {
   }, [searchTerm, doctors]);
 
   return (
-    <div className="min-h-screen bg-gray-100 mt-16">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-blue-900 text-white p-4 shadow-md gap-4">
-        <h1 className="text-xl sm:text-2xl font-bold">Doctor Management</h1>
-        <div className="flex flex-col sm:flex-row gap-2 sm:space-x-4 w-full sm:w-auto">
+    <div className="min-h-screen bg-slate-50 mt-16 pb-12 w-full max-w-full">
+      {/* Header Banner */}
+      <div className="bg-white border-b border-slate-200/80 shadow-xs py-6 px-4 sm:px-8">
+        <div className="w-full max-w-full mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Doctor Directory</h1>
+            <p className="text-xs text-slate-500 mt-1">Manage registered doctors and referral commission profiles</p>
+          </div>
           <button
-            className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-md shadow-indigo-500/20 transition-all active:scale-95 text-sm"
             onClick={() => navigate("/admin/addDoctor")}
           >
-            Add New Doctor
+            + Add New Doctor
           </button>
         </div>
       </div>
 
       {/* --- Message Banner --- */}
       {message.text && (
-        <div className={`p-4 text-center text-white ${message.isError ? 'bg-red-500' : 'bg-green-500'}`}>
-          {message.text}
+        <div className="w-full max-w-full mx-auto mt-4 px-4 sm:px-8">
+          <div className={`p-4 rounded-xl text-center text-sm font-semibold border shadow-sm ${message.isError ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+            {message.text}
+          </div>
         </div>
       )}
 
       {/* Main Content */}
-      <div className="container mx-auto px-2 sm:px-6 py-4 sm:py-6">
+      <div className="w-full max-w-full mx-auto px-4 sm:px-8 py-6">
         {/* Search Bar */}
-        <div className="flex justify-end mb-4">
-          <input
-            type="text"
-            placeholder="Search by name or phone"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full sm:w-auto p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-          />
+        <div className="flex justify-between items-center mb-6">
+          <div className="text-sm font-semibold text-slate-700">
+            Total Doctors: <span className="text-indigo-600 font-bold">{filteredDoctors.length}</span>
+          </div>
+          <div className="relative w-full sm:w-72">
+            <input
+              type="text"
+              placeholder="Search by name or phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-4 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl shadow-xs text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+            />
+          </div>
         </div>
 
-        {/* Doctor List */}
-        <div className="bg-white rounded-md shadow-md overflow-hidden">
-          <div className="w-full overflow-x-auto">
-            <div className="min-w-max">
-              <table className="w-full border-collapse border border-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="py-3 px-4 text-left font-medium text-gray-600 border-b whitespace-nowrap">Name</th>
-                    <th className="py-3 px-4 text-left font-medium text-gray-600 border-b whitespace-nowrap">Phone Number</th>
-                    <th className="py-3 px-4 text-left font-medium text-gray-600 border-b whitespace-nowrap">Address</th>
-                    <th className="py-3 px-4 text-left font-medium text-gray-600 border-b whitespace-nowrap">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredDoctors && filteredDoctors.length > 0 ? (
-                    filteredDoctors.map((doctor) => (
-                      <tr key={doctor._id} className="hover:bg-gray-100">
-                        <td className="py-3 px-4 border-b whitespace-nowrap">{doctor.name}</td>
-                        <td className="py-3 px-4 border-b whitespace-nowrap">{doctor.phoneNo}</td>
-                        <td className="py-3 px-4 border-b whitespace-nowrap">{doctor.address}</td>
-                        <td className="py-3 px-4 border-b whitespace-nowrap">
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <button
-                              onClick={() => handleEdit(doctor)}
-                              className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-2 rounded"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClick(doctor)}
-                              className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded flex items-center justify-center gap-1"
-                            >
-                              <Trash2 size={14} /> Delete
-                            </button>
-                          </div>
-                        </td>
-              _         </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="4" className="py-3 px-4 text-center text-gray-500">
-                        No doctors found.
+        {/* Doctor Table Card */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden p-4">
+          <TableScrollContainer>
+            <table className="w-full text-left border-collapse min-w-max">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-600 text-xs font-bold uppercase tracking-wider">
+                  <th className="py-3.5 px-6">Name</th>
+                  <th className="py-3.5 px-6">Phone Number</th>
+                  <th className="py-3.5 px-6">Address</th>
+                  <th className="py-3.5 px-6 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                {filteredDoctors && filteredDoctors.length > 0 ? (
+                  filteredDoctors.map((doctor) => (
+                    <tr key={doctor._id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-4 px-6 font-semibold text-slate-900 whitespace-nowrap">{doctor.name}</td>
+                      <td className="py-4 px-6 whitespace-nowrap text-slate-600">{doctor.phoneNo}</td>
+                      <td className="py-4 px-6 whitespace-nowrap text-slate-600">{doctor.address}</td>
+                      <td className="py-4 px-6 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleEdit(doctor)}
+                            className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/80 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(doctor)}
+                            className="bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/80 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 flex items-center gap-1"
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  )}
-                </tbody>
-      _       </table>
-            </div>
-          </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="4" className="text-center py-10 text-slate-400 text-sm font-medium">
+                      No doctors found matching "{searchTerm}"
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableScrollContainer>
         </div>
       </div>
 

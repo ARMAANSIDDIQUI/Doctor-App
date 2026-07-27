@@ -9,7 +9,7 @@ const SubCategoryDB = require('./Model/SubCategory');
 const Counter = require('./Model/Counter');
 
 // Connection string from environment variable
-const DB_CONNECTION_STRING = process.env.MONGODB_URI;
+const DB_CONNECTION_STRING = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/DoctorApp';
 
 // --- Helper Data for Generation ---
 const firstNames = ['Amit', 'Priya', 'Rajesh', 'Suman', 'Vikram', 'Meera', 'Rahul', 'Anjali', 'Kunal', 'Neha'];
@@ -27,9 +27,9 @@ const placedByOptions = ['Armaan'];
 
 // --- Configuration for Data Generation ---
 // Define your date range and orders per day here
-const START_DATE = '2023-01-01'; // Format: YYYY-MM-DD
-const END_DATE = '2024-12-31';   // Format: YYYY-MM-DD
-const ORDERS_PER_DAY = 5;     // Number of orders to create for each day
+const START_DATE = '2026-07-01'; // Format: YYYY-MM-DD
+const END_DATE = '2026-07-28';   // Format: YYYY-MM-DD
+const ORDERS_PER_DAY = 100;     // Number of orders to create for each day
 
 // Helper function to get a random item from an array
 const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];

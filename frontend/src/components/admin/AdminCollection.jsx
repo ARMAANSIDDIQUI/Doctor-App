@@ -4,6 +4,7 @@ import { fetchOrdersWithFilters } from "../../store/order";
 import { DateRangePicker } from "react-date-range";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
+import { Banknote, CreditCard, Wallet, Calendar, Filter } from 'lucide-react';
 
 const AdminCollection = () => {
   const dispatch = useDispatch();
@@ -26,30 +27,19 @@ const AdminCollection = () => {
   ]);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-// -----------------------------------------------------------------------------
-// --- EFFECT FOR FETCHING DATA (FIXED DATE LOGIC) ---
-// -----------------------------------------------------------------------------
   useEffect(() => {
     const { startDate, endDate } = dateRange[0];
 
-    // 1. Normalize START date to midnight of the selected day (Local Time)
     const normalizedStartDate = new Date(startDate);
     normalizedStartDate.setHours(0, 0, 0, 0);
 
-    // 2. Normalize END date to midnight of the DAY AFTER the selected end date.
     const normalizedEndDate = new Date(endDate);
-    // Add one day to move it to the next calendar day
     normalizedEndDate.setDate(normalizedEndDate.getDate() + 1);
-    // Set time to midnight (00:00:00.000)
     normalizedEndDate.setHours(0, 0, 0, 0);
     
-    // Prepare the filters object for the API call
     const filters = {
-      // Convert local dates to UTC ISO strings for the server filter
       startDate: normalizedStartDate.toISOString(),
       endDate: normalizedEndDate.toISOString(),
-      
-      // Use a large limit and set skip to 0 to bypass pagination for totals.
       skip: 0,
       limit: 100000, 
     };
@@ -57,117 +47,142 @@ const AdminCollection = () => {
     dispatch(fetchOrdersWithFilters(filters));
   }, [dispatch, dateRange]); 
 
-// -----------------------------------------------------------------------------
-// --- EFFECT FOR CALCULATING TOTALS (ROBUSTNESS & PRECISION) ---
-// -----------------------------------------------------------------------------
   useEffect(() => {
     if (paginatedOrders && paginatedOrders.length > 0) {
       let cashAmount = 0;
       let onlineAmount = 0;
 
       paginatedOrders.forEach((order) => {
-          // Robustly ensure values are numbers, defaulting to 0
-          const finalPayment = Number(order.finalPayment) || 0;
-          const cashSplit = Number(order.cash) || 0;
-          const onlineSplit = Number(order.online) || 0;
+        const finalPayment = Number(order.finalPayment) || 0;
+        const cashSplit = Number(order.cash) || 0;
+        const onlineSplit = Number(order.online) || 0;
 
-          if (order.paymentMode === "Cash") {
-            cashAmount += finalPayment;
-          } else if (order.paymentMode === "Online") {
-            onlineAmount += finalPayment;
-          } else if (order.paymentMode === "Online + Cash") {
-            cashAmount += cashSplit;
-            onlineAmount += onlineSplit;
-          }
+        if (order.paymentMode === "Cash") {
+          cashAmount += finalPayment;
+        } else if (order.paymentMode === "Online") {
+          onlineAmount += finalPayment;
+        } else if (order.paymentMode === "Online + Cash") {
+          cashAmount += cashSplit;
+          onlineAmount += onlineSplit;
+        }
       });
 
       const overallTotal = cashAmount + onlineAmount;
       
-      // Use toFixed(2) to mitigate floating point errors and ensure correct currency precision
       setTotals({ 
-            cashAmount: Number(cashAmount.toFixed(2)), 
-            onlineAmount: Number(onlineAmount.toFixed(2)), 
-            overallTotal: Number(overallTotal.toFixed(2)) 
-        });
+        cashAmount: Number(cashAmount.toFixed(2)), 
+        onlineAmount: Number(onlineAmount.toFixed(2)), 
+        overallTotal: Number(overallTotal.toFixed(2)) 
+      });
     } else {
       setTotals({ cashAmount: 0, onlineAmount: 0, overallTotal: 0 });
     }
   }, [paginatedOrders]);
 
-// -----------------------------------------------------------------------------
-// --- RENDER ---
-// -----------------------------------------------------------------------------
   if (ordersLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <p className="text-2xl font-semibold text-gray-700">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 mt-16">
+        <div className="text-center text-slate-500 font-semibold text-sm">
+          Loading revenue collections...
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <h1 className="text-2xl font-bold text-center mb-6">Collections</h1>
+    <div className="min-h-screen bg-slate-50 mt-16 py-10 px-4 sm:px-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Header Card */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200/60">
+                Revenue Analytics
+              </span>
+            </div>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-2">Financial Collections</h1>
+            <p className="text-xs text-slate-500 mt-1">Audit cash vs online settlements by date range</p>
+          </div>
+          <button
+            onClick={() => setShowDatePicker(!showDatePicker)}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-md shadow-indigo-500/20 transition-all active:scale-95 text-xs"
+          >
+            <Filter className="h-4 w-4" />
+            {showDatePicker ? "Hide Date Selector" : "Select Custom Date Range"}
+          </button>
+        </div>
 
-      <div className="flex flex-col items-center mb-6">
-        <button
-          onClick={() => setShowDatePicker(!showDatePicker)}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4 shadow-md transition duration-300"
-        >
-          {showDatePicker ? "Hide Date Picker" : "Select Date Range"}
-        </button>
+        {/* Date Range Picker Modal Container */}
         {showDatePicker && (
-          <div className="bg-white shadow-lg rounded-lg p-4 z-10 absolute mt-2">
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xl p-6 flex flex-col items-center justify-center animate-in fade-in">
             <DateRangePicker
               ranges={dateRange}
               onChange={(item) => {
-                  setDateRange([item.selection]);
-                  // FIX: If both dates are set (or it's a single day selection), close the picker.
-                  const { startDate, endDate } = item.selection;
-                  if (startDate && endDate) {
-                      // Check if the selection is complete (only true for single select if start=end)
-                      const selectionComplete = startDate.getTime() === endDate.getTime();
-
-                      // If the selection is a single day, or the second day is selected in a range, close it.
-                      if (item.selection.hasOwnProperty('endDate')) {  // Check if the selection property exists
-                            setShowDatePicker(false);
-                      }
-                  }
+                setDateRange([item.selection]);
+                if (item.selection.startDate && item.selection.endDate && item.selection.startDate.getTime() !== item.selection.endDate.getTime()) {
+                  setShowDatePicker(false);
+                }
               }}
               showSelectionPreview={true}
               moveRangeOnFirstSelection={false}
               months={2}
               direction="horizontal"
             />
+            <button
+              onClick={() => setShowDatePicker(false)}
+              className="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs"
+            >
+              Close Date Picker
+            </button>
           </div>
         )}
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Cash Amount */}
-        <div className="bg-white shadow-md rounded-lg p-6 text-center">
-          <h2 className="text-xl font-semibold text-gray-700">Cash Amount</h2>
-          <p className="text-4xl font-bold text-green-500 mt-4">
-            ₹{totals.cashAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-          </p>
-        </div>
+        {/* Collection Metric Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cash Revenue</span>
+              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Banknote className="h-6 w-6" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">
+                ₹{totals.cashAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">Total cash transactions</p>
+            </div>
+          </div>
 
-        {/* Online Amount */}
-        <div className="bg-white shadow-md rounded-lg p-6 text-center">
-          <h2 className="text-xl font-semibold text-gray-700">Online Amount</h2>
-          <p className="text-4xl font-bold text-blue-500 mt-4">
-            ₹{totals.onlineAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-          </p>
-        </div>
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Online Revenue</span>
+              <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <CreditCard className="h-6 w-6" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">
+                ₹{totals.onlineAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">UPI & card transactions</p>
+            </div>
+          </div>
 
-        {/* Overall Total */}
-        <div className="bg-white shadow-md rounded-lg p-6 text-center">
-          <h2 className="text-xl font-semibold text-gray-700">Overall Total</h2>
-          <p className="text-4xl font-bold text-purple-500 mt-4">
-            ₹{totals.overallTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-          </p>
+          <div className="bg-gradient-to-br from-indigo-600 to-blue-600 text-white p-6 rounded-3xl shadow-lg shadow-indigo-500/20 flex flex-col justify-between space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-indigo-100 uppercase tracking-wider">Total Collection</span>
+              <div className="h-12 w-12 rounded-2xl bg-white/20 text-white flex items-center justify-center border border-white/20">
+                <Wallet className="h-6 w-6" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-black text-white tracking-tight">
+                ₹{totals.overallTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </h3>
+              <p className="text-xs text-indigo-100 mt-1">Combined total revenue</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

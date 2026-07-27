@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOrdersWithFilters } from "../../store/order"; 
 import { format } from "date-fns";
+import { Banknote, CreditCard, Wallet, Calendar } from 'lucide-react';
 
 const Collections = () => {
   const dispatch = useDispatch();
@@ -11,29 +12,21 @@ const Collections = () => {
     overallTotal: 0,
   });
 
-  // The filtered orders are stored in paginatedOrders in the state
   const { paginatedOrders, loading: ordersLoading } = useSelector((state) => state.order);
 
   useEffect(() => {
-    // Date calculation for the current local day (Today 00:00:00 to Tomorrow 00:00:00)
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0); 
 
-    // Prepare the filters object
     const filters = {
-      // Send the full, local 24-hour range as ISO strings
       startDate: startOfDay.toISOString(),
       endDate: endOfToday.toISOString(), 
-      
-      // FIX: Use the 'download' flag AND a large limit to guarantee the backend returns all data.
-      // This is necessary to skip pagination for collection totals.
       download: true, 
       skip: 0,
       limit: 100000, 
     };
 
-    // Dispatch the thunk to fetch orders for today from the database
     dispatch(fetchOrdersWithFilters(filters));
   }, [dispatch]);
 
@@ -43,10 +36,9 @@ const Collections = () => {
       let onlineAmount = 0;
 
       paginatedOrders.forEach((order) => {
-          // Robustly ensure values are numbers, defaulting to 0
-          const finalPayment = Number(order.finalPayment) || 0;
-          const cashSplit = Number(order.cash) || 0;
-          const onlineSplit = Number(order.online) || 0;
+        const finalPayment = Number(order.finalPayment) || 0;
+        const cashSplit = Number(order.cash) || 0;
+        const onlineSplit = Number(order.online) || 0;
           
         if (order.paymentMode === "Cash") {
           cashAmount += finalPayment;
@@ -60,11 +52,10 @@ const Collections = () => {
 
       const overallTotal = cashAmount + onlineAmount;
       
-      // Use toFixed(2) to mitigate floating point errors and ensure correct currency precision
       setTotals({ 
-            cashAmount: Number(cashAmount.toFixed(2)), 
-            onlineAmount: Number(onlineAmount.toFixed(2)), 
-            overallTotal: Number(overallTotal.toFixed(2)) 
+        cashAmount: Number(cashAmount.toFixed(2)), 
+        onlineAmount: Number(onlineAmount.toFixed(2)), 
+        overallTotal: Number(overallTotal.toFixed(2)) 
       });
     } else {
       setTotals({ cashAmount: 0, onlineAmount: 0, overallTotal: 0 });
@@ -73,40 +64,80 @@ const Collections = () => {
 
   if (ordersLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <p className="text-2xl font-semibold text-gray-700">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 mt-16">
+        <div className="text-center text-slate-500 font-semibold text-sm">
+          Fetching daily collection metrics...
         </div>
-       </div>
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <h1 className="text-2xl font-bold text-center mb-6">Today's Collections ({format(new Date(), 'dd MMM yyyy')})</h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Cash Amount */}
-        <div className="bg-white shadow-md rounded-lg p-6 text-center">
-          <h2 className="text-xl font-semibold text-gray-700">Cash Amount</h2>
-          <p className="text-4xl font-bold text-green-500 mt-4">
-            ₹{totals.cashAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-          </p>
+    <div className="min-h-screen bg-slate-50 mt-16 py-10 px-4 sm:px-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Header Banner */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/60 flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-emerald-600" />
+                {format(new Date(), 'dd MMMM yyyy')}
+              </span>
+            </div>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-2">Daily Revenue Summary</h1>
+            <p className="text-xs text-slate-500 mt-1">Real-time breakdown of today's operator collections</p>
+          </div>
         </div>
 
-        {/* Online Amount */}
-        <div className="bg-white shadow-md rounded-lg p-6 text-center">
-          <h2 className="text-xl font-semibold text-gray-700">Online Amount</h2>
-          <p className="text-4xl font-bold text-blue-500 mt-4">
-            ₹{totals.onlineAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-          </p>
-        </div>
+        {/* Collection Metric Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Cash Amount */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Cash Collection</span>
+              <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Banknote className="h-6 w-6" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">
+                ₹{totals.cashAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">Cash payments collected</p>
+            </div>
+          </div>
 
-        {/* Overall Total */}
-        <div className="bg-white shadow-md rounded-lg p-6 text-center">
-          <h2 className="text-xl font-semibold text-gray-700">Overall Total</h2>
-          <p className="text-4xl font-bold text-purple-500 mt-4">
-            ₹{totals.overallTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-          </p>
+          {/* Online Amount */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Online / UPI</span>
+              <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <CreditCard className="h-6 w-6" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">
+                ₹{totals.onlineAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">Digital payments & transfers</p>
+            </div>
+          </div>
+
+          {/* Overall Total */}
+          <div className="bg-gradient-to-br from-indigo-600 to-blue-600 text-white p-6 rounded-3xl shadow-lg shadow-indigo-500/20 flex flex-col justify-between space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-indigo-100 uppercase tracking-wider">Gross Total Collection</span>
+              <div className="h-12 w-12 rounded-2xl bg-white/20 text-white flex items-center justify-center border border-white/20">
+                <Wallet className="h-6 w-6" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-black text-white tracking-tight">
+                ₹{totals.overallTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </h3>
+              <p className="text-xs text-indigo-100 mt-1">Combined total revenue today</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

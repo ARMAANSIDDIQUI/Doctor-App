@@ -392,18 +392,27 @@ const PatientForm = () => {
   }, [patients, phoneNo, selectedPatient, NewphoneNo]);
   
   return (
-    <div className="min-h-screen flex flex-col md:flex-row mt-14"> {/* Reduced the top margin from mt-16 to mt-4 */}
-     <div className="flex flex-col items-center md:w-1/2 p-8">
-        <div className="h-full flex items-center justify-center md:mb-80">
-          <div className="text-center text-black">
-            <img src="/p2.svg" alt="Patient" className="w-[25rem] h-[25rem] mb-4" />
-            <h1 className="text-4xl font-bold mb-4">Welcome to Our Healthcare Center</h1>
-            <p className="text-xl">Your health is our priority</p>
+    <div className="min-h-screen bg-slate-50 mt-16 py-10 px-4 sm:px-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Hero Card */}
+        <div className="lg:col-span-4 bg-white rounded-3xl border border-slate-200/80 p-8 shadow-sm text-center flex flex-col items-center justify-center space-y-6">
+          <div className="h-20 w-20 rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
+            <img src="/p2.svg" alt="Patient Registration" className="w-12 h-12" />
           </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Delight Diagnostics</h1>
+            <p className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full inline-block border border-indigo-200/60">
+              Patient Registration & Billing
+            </p>
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-xs">
+            Enter patient demographics, select scan categories, procedure subcategories, and process payment receipt.
+          </p>
+          <ToastContainer position="top-right" autoClose={3000} />
         </div>
-        <ToastContainer position="top-right" autoClose={3000} />
-      </div>
-      <div className="flex flex-col md:w-1/2 p-16 bg-white mx-4 md:mx-8 rounded-lg shadow-sm">
+
+        {/* Right Form Card */}
+        <div className="lg:col-span-8 bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-10 shadow-sm">
        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -883,19 +892,17 @@ const PatientForm = () => {
  
           <button
             type="submit"
-            className="w-full py-3 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
+            className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-sm rounded-xl shadow-md shadow-indigo-500/25 transition-all active:scale-98 cursor-pointer mt-4"
           >
-            Submit
+            Complete Registration & Place Order
           </button>
         </form>
       </div>
 
       <AddDoctorModal isOpen={isAddDoctorModalOpen} onClose={handleCloseModal} />
- 
-      
+      </div>
     </div>
   );
-  
 };
 
 export default PatientForm;

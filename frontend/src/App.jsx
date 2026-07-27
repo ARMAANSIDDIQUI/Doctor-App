@@ -30,6 +30,7 @@ import AdminCollection from './components/admin/AdminCollection';
 import Unbilled from './components/patients/Unbilled';
 import Operator from './components/admin/Operator';
 import ChangePassword from './components/admin/ChangePassword';
+import { ModalProvider } from './context/ModalContext';
 
 const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
@@ -46,16 +47,12 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   const dispatch = useDispatch();
-  // const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
-  // const loading = useSelector((state) => state.auth.loading);
-  // useEffect(() => {
-  //   dispatch(checkAuth());
-  // }, [dispatch]);
 
   return (
-    <div className="flex flex-col overflow-hidden bg-white">
-      <ToastContainer />
-      <Routes>
+    <ModalProvider>
+      <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800">
+        <ToastContainer />
+        <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login /> } />
         <Route
@@ -129,8 +126,8 @@ function App() {
         } />
       </Routes>
     </div>
+    </ModalProvider>
   );
-
 }
 
 export default App;

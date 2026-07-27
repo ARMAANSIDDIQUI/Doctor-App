@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import api from "@/common/axios";
 import { format, startOfMonth, endOfMonth, isValid, addDays } from "date-fns";
 import { toast } from "react-toastify";
+import { useModal } from "../context/ModalContext";
 import {
     Command,
     CommandEmpty,
@@ -26,9 +27,10 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-
+import TableScrollContainer from "@/components/ui/TableScrollContainer";
 
 const MonthlyReport = () => {
+    const { showAlert } = useModal();
     const dispatch = useDispatch();
     const [doctors, setDoctors] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
@@ -297,7 +299,11 @@ const MonthlyReport = () => {
             setCurrentPage(pageNumber);
             setGoToPageInput("");
         } else {
-            alert(`Please enter a valid page number between 1 and ${totalPages}`);
+            showAlert({
+                title: 'Invalid Page',
+                message: `Please enter a valid page number between 1 and ${totalPages}`,
+                type: 'warning'
+            });
         }
     };
 
@@ -315,10 +321,25 @@ const MonthlyReport = () => {
     }, []);
 
     return (
-        <div className="p-2 sm:p-6 mt-16">
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-                <div className="flex flex-col space-y-2">
-                    <Label htmlFor="doctor" className="text-lg font-semibold text-gray-700">Select Doctor</Label>
+        <div className="min-h-screen bg-slate-50 mt-16 py-8 px-4 sm:px-8 w-full max-w-full">
+            <div className="w-full max-w-full space-y-6">
+                {/* Header Banner */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/60">
+                                Doctor Settlements
+                            </span>
+                        </div>
+                        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-2">Monthly Doctor Reports</h1>
+                        <p className="text-xs text-slate-500 mt-1">Filter commission breakdown by doctor, custom month, or download Excel</p>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                        <div className="flex flex-col space-y-2">
+                            <Label htmlFor="doctor" className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Select Doctor</Label>
                     
                     {/* Popover Structure for stable input */}
                     <Popover open={openDoctorPopover} onOpenChange={setOpenDoctorPopover}>
@@ -460,15 +481,23 @@ const MonthlyReport = () => {
                 <div></div>
             </div>
             
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
-                <div className="flex items-center gap-4 w-full sm:w-auto">
-                    <button onClick={resetAllFilters} className="flex items-center justify-center space-x-1 p-1.5 border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
-                        <RefreshCcw className="w-3.5 h-3.5 text-blue-500" />
-                        <span className="text-xs font-medium text-gray-600">Reset Filters</span>
+            <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 pt-4 border-t border-slate-100">
+                <div className="flex flex-wrap items-center gap-3">
+                    <button
+                        onClick={resetAllFilters}
+                        className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all active:scale-95"
+                    >
+                        <RefreshCcw className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Reset Filters</span>
                     </button>
                     <div className="flex items-center gap-2">
-                        <Label htmlFor="orders-per-page" className="font-medium text-sm whitespace-nowrap">Show:</Label>
-                        <select id="orders-per-page" value={ordersPerPage} onChange={handleOrdersPerPageChange} className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <Label htmlFor="orders-per-page" className="font-semibold text-xs text-slate-600 uppercase tracking-wider">Show:</Label>
+                        <select
+                            id="orders-per-page"
+                            value={ordersPerPage}
+                            onChange={handleOrdersPerPageChange}
+                            className="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                        >
                             <option value={10}>10</option>
                             <option value={20}>20</option>
                             <option value={50}>50</option>
@@ -476,98 +505,156 @@ const MonthlyReport = () => {
                         </select>
                     </div>
                 </div>
-                <input type="text" placeholder="Search Patient Name" value={searchQuery} onChange={handleSearchChange} className="p-2 border border-gray-300 rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-48 text-sm" />
-                <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                    <div className="flex items-center space-x-2">
-                        <input type="checkbox" id="downloadAll" checked={downloadAll} onChange={(e) => setDownloadAll(e.target.checked)} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"/>
-                        <Label htmlFor="downloadAll" className="text-sm font-medium text-gray-700">Download All</Label>
-                    </div>
-                    <Button onClick={() => handleDownload('grouped')} disabled={isDownloading} className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition w-full sm:w-auto disabled:bg-gray-400">
+
+                <div className="w-full sm:w-64">
+                    <Input
+                        type="text"
+                        placeholder="Search Patient Name..."
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                    />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    <label htmlFor="downloadAll" className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            id="downloadAll"
+                            checked={downloadAll}
+                            onChange={(e) => setDownloadAll(e.target.checked)}
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                        />
+                        <span>Download All</span>
+                    </label>
+                    <Button
+                        onClick={() => handleDownload('grouped')}
+                        disabled={isDownloading}
+                        variant="default"
+                        className="text-xs font-semibold shadow-xs"
+                    >
                         {isDownloading ? 'Downloading...' : 'Download Report'}
                     </Button>
-                    <Button onClick={() => handleDownload('detailed')} disabled={isDownloading} className="px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-700 transition w-full sm:w-auto disabled:bg-gray-400">
+                    <Button
+                        onClick={() => handleDownload('detailed')}
+                        disabled={isDownloading}
+                        variant="success"
+                        className="text-xs font-semibold shadow-xs"
+                    >
                         {isDownloading ? 'Downloading...' : 'Download Detailed'}
                     </Button>
                 </div>
             </div>
-            {message && <p className={`mt-4 text-center font-semibold ${message.includes('error') ? 'text-red-600' : 'text-blue-600'}`}>{message}</p>}
 
-            <div className="w-full overflow-x-auto shadow-md rounded-lg">
-                <table className="w-full min-w-max border-collapse border border-gray-300">
+            {message && (
+                <p className={`mt-4 text-center font-semibold text-xs ${message.includes('error') ? 'text-rose-600' : 'text-indigo-600'}`}>
+                    {message}
+                </p>
+            )}
+
+            {/* Table Container */}
+            <TableScrollContainer>
+                <table className="w-full text-left border-collapse min-w-max">
                     <thead>
-                        <tr className="bg-gray-100">
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Serial No</th>
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Date</th>
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Patient</th>
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Doctor Name</th>
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Doctor Mobile</th>
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Doctor Address</th>
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Placed By</th>
+                        <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-600 text-xs font-bold uppercase tracking-wider">
+                            <th className="py-3.5 px-4">Serial No</th>
+                            <th className="py-3.5 px-4">Date</th>
+                            <th className="py-3.5 px-4">Patient</th>
+                            <th className="py-3.5 px-4">Doctor Name</th>
+                            <th className="py-3.5 px-4">Doctor Mobile</th>
+                            <th className="py-3.5 px-4">Doctor Address</th>
+                            <th className="py-3.5 px-4">Placed By</th>
                             {categories.map((category) => (
-                                <th key={category._id} className="border border-gray-300 p-2 whitespace-nowrap">
+                                <th key={category._id} className="py-3.5 px-4">
                                     {category.name}
                                 </th>
                             ))}
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Discount</th>
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Final Payment</th>
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Referral Fee</th>
-                            <th className="border border-gray-300 p-2 whitespace-nowrap">Total Commission</th>
+                            <th className="py-3.5 px-4">Discount</th>
+                            <th className="py-3.5 px-4">Final Payment</th>
+                            <th className="py-3.5 px-4">Referral Fee</th>
+                            <th className="py-3.5 px-4 text-right">Commission</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                         {ordersLoading ? (
-                            <tr><td colSpan={11 + categories.length} className="text-center py-4 text-gray-500">Loading...</td></tr>
+                            <tr>
+                                <td colSpan={11 + categories.length} className="text-center py-8 text-slate-400 font-medium">Loading reports...</td>
+                            </tr>
                         ) : groupedData.length > 0 ? (
                             groupedData.flatMap((group) =>
                                 group.orders.map((order) => (
-                                    <tr key={order._id} className="hover:bg-gray-100">
-                                        <td className="border border-gray-300 p-2">{order.serialNo}</td>
-                                        <td className="border border-gray-300 p-2">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
-                                        <td className="border border-gray-300 p-2">{order.name || "Unknown"}</td>
-                                        <td className="border border-gray-300 p-2">{order.referredBy?.name || "Unknown"}</td>
-                                        <td className="border border-gray-300 p-2">{order.referredBy?.phoneNo || "N/A"}</td>
-                                        <td className="border border-gray-300 p-2">{order.referredBy?.address || "N/A"}</td>
-                                        <td className="border border-gray-300 p-2">{order.placedBy || "N/A"}</td>
+                                    <tr key={order._id} className="hover:bg-slate-50/80 transition-colors">
+                                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{order.serialNo}</td>
+                                        <td className="py-3.5 px-4 text-xs text-slate-500">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
+                                        <td className="py-3.5 px-4 font-semibold text-slate-900">{order.name || "Unknown"}</td>
+                                        <td className="py-3.5 px-4 font-semibold text-indigo-700">{order.referredBy?.name || "Unknown"}</td>
+                                        <td className="py-3.5 px-4 text-slate-600 text-xs">{order.referredBy?.phoneNo || "N/A"}</td>
+                                        <td className="py-3.5 px-4 text-slate-600 text-xs">{order.referredBy?.address || "N/A"}</td>
+                                        <td className="py-3.5 px-4 text-slate-600 text-xs">{order.placedBy || "N/A"}</td>
                                         {categories.map((category) => (
-                                            <td key={category._id} className="border border-gray-300 p-2">{order.category === category.name ? order.subcategory || "N/A" : ""}</td>
+                                            <td key={category._id} className="py-3.5 px-4">
+                                                {order.category === category.name ? (
+                                                    <span className="bg-indigo-50 text-indigo-700 font-semibold text-xs px-2.5 py-1 rounded-full border border-indigo-200/60">
+                                                        {order.subcategory || "N/A"}
+                                                    </span>
+                                                ) : ""}
+                                            </td>
                                         ))}
-                                        <td className="border border-gray-300 p-2">{order.discount || 0}</td>
-                                        <td className="border border-gray-300 p-2">{order.finalPayment || 0}</td>
-                                        <td className="border border-gray-300 p-2">{order.referralFee || 0}</td>
-                                        <td className="border border-gray-300 p-2">{(order.referralFee || 0) - (order.discount || 0)}</td>
+                                        <td className="py-3.5 px-4 text-rose-600 font-semibold">{order.discount ? `₹${order.discount}` : "—"}</td>
+                                        <td className="py-3.5 px-4 font-extrabold text-slate-900">₹{order.finalPayment || 0}</td>
+                                        <td className="py-3.5 px-4 font-semibold text-slate-600">₹{order.referralFee || 0}</td>
+                                        <td className="py-3.5 px-4 font-extrabold text-emerald-700 text-right">
+                                            ₹{(order.referralFee || 0) - (order.discount || 0)}
+                                        </td>
                                     </tr>
                                 ))
                             )
                         ) : (
-                            <tr><td colSpan={11 + categories.length} className="text-center py-4 text-gray-500">No orders found</td></tr>
+                            <tr>
+                                <td colSpan={11 + categories.length} className="text-center py-10 text-slate-400 text-sm font-medium">No orders found for selected criteria</td>
+                            </tr>
                         )}
                     </tbody>
                 </table>
-            </div>
-            <div className="flex justify-evenly items-center mt-6">
-                <Button onClick={handlePrevPage} disabled={currentPage === 1 || ordersLoading || isDownloading} className="bg-gray-300 text-gray-800 disabled:opacity-50">Previous</Button>
-                <span>Page {currentPage} of {totalPages}</span>
-                <Button onClick={handleNextPage} disabled={currentPage >= totalPages || ordersLoading || isDownloading} className="bg-gray-300 text-gray-800 disabled:opacity-50">Next</Button>
-                <form onSubmit={handleGoToPage} className="flex items-center ml-4 gap-2">
+            </TableScrollContainer>
+
+            {/* Pagination Controls */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                    <Button variant="outline" size="sm" onClick={handlePrevPage} disabled={currentPage === 1 || ordersLoading || isDownloading}>
+                        Previous
+                    </Button>
+                    <span className="text-xs font-semibold text-slate-600">
+                        Page <span className="text-slate-900 font-bold">{currentPage}</span> of <span className="text-slate-900 font-bold">{totalPages}</span>
+                    </span>
+                    <Button variant="outline" size="sm" onClick={handleNextPage} disabled={currentPage >= totalPages || ordersLoading || isDownloading}>
+                        Next
+                    </Button>
+                </div>
+                <form onSubmit={handleGoToPage} className="flex items-center gap-2">
                     <Input
                         type="number"
                         value={goToPageInput}
                         onChange={(e) => setGoToPageInput(e.target.value)}
-                        placeholder="Go to page"
+                        placeholder="Go to page..."
                         min="1"
                         max={totalPages}
-                        className="w-24 text-center"
+                        className="w-28 text-xs"
                     />
-                    <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700">
-                        Go
-                    </Button>
+                    <Button type="submit" variant="secondary" size="sm">Go</Button>
                 </form>
             </div>
-            <button onClick={scrollToTop} className="fixed bottom-4 right-4 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition transform hover:scale-105 z-50" style={{ display: showScrollButton ? 'flex' : 'none' }}>
-                ↑
-            </button>
+            {showScrollButton && (
+                <button
+                    onClick={scrollToTop}
+                    className="fixed bottom-6 right-6 w-11 h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 z-50 text-base font-bold"
+                >
+                    ↑
+                </button>
+            )}
         </div>
-    );
+    </div>
+</div>
+  );
 };
 
 export default MonthlyReport;
