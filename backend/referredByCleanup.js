@@ -1,11 +1,11 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 const Order = require('./Model/Order');     // <-- IMPORTANT: Check this path
 const DoctorDB = require('./Model/Doctor'); // <-- IMPORTANT: Check this path
 const readline = require('readline/promises'); // <-- Use the 'promises' version
 
 // --- CONFIGURATION ---
-// This is the connection string you provided
-const MONGODB_URI = 'mongodb+srv://armaansiddiquimit_db_user:Armaan_123@cluster0.bddkncp.mongodb.net/DoctorApp';
+const MONGODB_URI = process.env.MONGODB_URI;
 
 /**
  * @description: A utility script to clean up orders with invalid or non-existent 'referredBy' IDs.

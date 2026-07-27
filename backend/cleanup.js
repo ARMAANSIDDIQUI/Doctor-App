@@ -1,10 +1,10 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 const Order = require('./Model/Order'); // Make sure this path is correct
 const readline = require('readline');
 
 // --- CONFIGURATION ---
-// !! TRIPLE CHECK THIS IS YOUR PRODUCTION DB !!
-const DB_CONNECTION_STRING = 'mongodb+srv://armaansiddiquimit_db_user:Armaan_123@cluster0.bddkncp.mongodb.net/DoctorApp';
+const DB_CONNECTION_STRING = process.env.MONGODB_URI;
 
 // The *exact* list of test addresses to find
 const testAddresses = [

@@ -4,7 +4,8 @@ const Admin = require('../Model/Admin');  // Ensure this path is correct
 
 // Admin login function
 const AdminLogin = async (req, res) => {
-    const { username, password } = req.headers;
+    const username = req.body?.username || req.headers?.username;
+    const password = req.body?.password || req.headers?.password;
     
 
     try {

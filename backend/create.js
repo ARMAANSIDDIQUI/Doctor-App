@@ -1,3 +1,4 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Types;
 
@@ -7,8 +8,8 @@ const DoctorDB = require('./Model/Doctor');
 const SubCategoryDB = require('./Model/SubCategory');
 const Counter = require('./Model/Counter');
 
-// IMPORTANT: Replace with your actual database connection string
-const DB_CONNECTION_STRING = 'mongodb+srv://armaansiddiquimit_db_user:Armaan_123@cluster0.bddkncp.mongodb.net/DoctorApp';
+// Connection string from environment variable
+const DB_CONNECTION_STRING = process.env.MONGODB_URI;
 
 // --- Helper Data for Generation ---
 const firstNames = ['Amit', 'Priya', 'Rajesh', 'Suman', 'Vikram', 'Meera', 'Rahul', 'Anjali', 'Kunal', 'Neha'];

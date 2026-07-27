@@ -1,8 +1,8 @@
+require('dotenv').config();
 const { MongoClient, ObjectId } = require("mongodb");
 
 async function fixOrders() {
-  const uri =
-    "mongodb+srv://armaansiddiquimit_db_user:Armaan_123@cluster0.bddkncp.mongodb.net/DoctorApp";
+  const uri = process.env.MONGODB_URI;
   const client = new MongoClient(uri);
 
   try {

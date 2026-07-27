@@ -1,5 +1,4 @@
-// This script is used to correct the reports in which doctor is set to null or doctor id is non referenced hence deleted(non existing) 
-
+require('dotenv').config();
 const mongoose = require('mongoose');
 // Assuming your models are correctly defined and can be imported:
 const Order = require('./Model/Order'); 
@@ -7,9 +6,7 @@ const DoctorDB = require('./Model/Doctor');
 const { ObjectId } = mongoose.Types; // Use Mongoose's ObjectId utility
 
 // --- CONFIGURATION ---
-
-// REPLACE WITH PRODUCTION CLUSTER URL
-const DB_CONNECTION_STRING = 'mongodb+srv://armaansiddiquimit_db_user:Armaan_123@cluster0.bddkncp.mongodb.net/DoctorApp';
+const DB_CONNECTION_STRING = process.env.MONGODB_URI;
 
 // --- HEALING LOGIC ---
 const healDatabase = async () => {
