@@ -202,16 +202,34 @@ const handleSubmit = async () => {
                           <td className="py-3.5 px-4 text-slate-500 text-xs">
                             {format(new Date(patient.createdAt), "yyyy-MM-dd")}
                           </td>
-                          <td className="py-3.5 px-4">₹{patient.fees}</td>
-                          <td className="py-3.5 px-4 text-rose-600 font-semibold">
-                            {patient.discount ? `₹${patient.discount}` : "—"}
+                          <td className="py-3.5 px-4 whitespace-nowrap font-semibold">₹{patient.fees}</td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {patient.discount ? (
+                              <span className="inline-block px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold border border-rose-200/60 dark:border-rose-800/80 text-xs shadow-xs">
+                                ₹{patient.discount}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">—</span>
+                            )}
                           </td>
-                          <td className="py-3.5 px-4 font-bold text-slate-900">₹{patient.finalPayment}</td>
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span className="inline-block px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-amber-950/60 text-indigo-700 dark:text-amber-400 font-extrabold border border-indigo-200/60 dark:border-amber-800/80 text-xs shadow-xs">
+                              ₹{patient.finalPayment}
+                            </span>
+                          </td>
                           {selectedDoctor !== "0" && (
-                            <td className="py-3.5 px-4 text-slate-600">₹{patient.referralFee}</td>
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 text-xs shadow-xs">
+                                ₹{patient.referralFee}
+                              </span>
+                            </td>
                           )}
                           {selectedDoctor !== "0" && (
-                            <td className="py-3.5 px-4 font-extrabold text-emerald-700 text-right">₹{commission}</td>
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                              <span className="inline-block px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-extrabold border border-emerald-200/60 dark:border-emerald-800/80 text-xs shadow-xs">
+                                ₹{commission}
+                              </span>
+                            </td>
                           )}
                         </tr>
                       );

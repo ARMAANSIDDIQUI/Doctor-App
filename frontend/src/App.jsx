@@ -31,6 +31,9 @@ import Unbilled from './components/patients/Unbilled';
 import Operator from './components/admin/Operator';
 import ChangePassword from './components/admin/ChangePassword';
 import { ModalProvider } from './context/ModalContext';
+import { ThemeProvider } from './context/ThemeContext';
+import ScrollToTop from './components/ui/ScrollToTop';
+import ScrollToTopButton from './components/ui/ScrollToTopButton';
 
 const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
@@ -49,86 +52,89 @@ function App() {
   const dispatch = useDispatch();
 
   return (
-    <ModalProvider>
-      <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800">
-        <ToastContainer />
-        <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={<Login /> } />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Navbar />
-              <Patient />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/print-report"
-          element={
-            <ProtectedRoute>
-              <Navbar />
-              <PrintReport />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/patient-form"
-          element={
-            <ProtectedRoute>
-              <Navbar />
-              <PatientForm />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/collection"
-          element={
-            <ProtectedRoute>
-              <Navbar />
-              <Collections />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/unbilled-transactions"
-          element={
-            <ProtectedRoute>
-              <Navbar />
-              <Unbilled />
-            </ProtectedRoute>
-          }
+    <ThemeProvider>
+      <ModalProvider>
+        <ScrollToTop />
+        <ScrollToTopButton />
+        <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200">
+          <ToastContainer />
+          <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={<Login /> } />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Navbar />
+                <Patient />
+              </ProtectedRoute>
+            }
           />
+          <Route
+            path="/print-report"
+            element={
+              <ProtectedRoute>
+                <Navbar />
+                <PrintReport />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patient-form"
+            element={
+              <ProtectedRoute>
+                <Navbar />
+                <PatientForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/collection"
+            element={
+              <ProtectedRoute>
+                <Navbar />
+                <Collections />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/unbilled-transactions"
+            element={
+              <ProtectedRoute>
+                <Navbar />
+                <Unbilled />
+              </ProtectedRoute>
+            }
+            />
 
-        {/* Admin Routes (scoped under /admin) */}
-        <Route path="/admin/login" element={<AdminLogin />} />
+          {/* Admin Routes (scoped under /admin) */}
+          <Route path="/admin/login" element={<AdminLogin />} />
 
-        {/* Protected Admin Routes */}
-        <Route path="/admin/*" element={
-          <CheckAuth>
-            <AdminNavbar />
-            <Routes>
-              <Route path="dashboard" element={<AdminDashBoard />} />
-              <Route path="doctor" element={<Doctor />} />
-              <Route path="addDoctor" element={<DoctorForm />} />
-              <Route path="doctorReport" element={<DoctorReport />} />
-              <Route path="monthlyReport" element={<MonthyReport />} />
-              <Route path="category" element={<Category />} />
-              <Route path="addCategory" element={<CategoryForm />} />
-              <Route path="addSubcategory" element={<SubCategoryForm />} />
-              <Route path="reports" element={<AdminOrdersPage />} />
-              <Route path="collection" element={<AdminCollection />} />
-              <Route path="operator" element={<Operator />} />
-              <Route path="change-password" element={<ChangePassword />} />
-            </Routes>
-          </CheckAuth>
-        } />
-      </Routes>
-    </div>
-    </ModalProvider>
+          {/* Protected Admin Routes */}
+          <Route path="/admin/*" element={
+            <CheckAuth>
+              <AdminNavbar />
+              <Routes>
+                <Route path="dashboard" element={<AdminDashBoard />} />
+                <Route path="doctor" element={<Doctor />} />
+                <Route path="addDoctor" element={<DoctorForm />} />
+                <Route path="doctorReport" element={<DoctorReport />} />
+                <Route path="monthlyReport" element={<MonthyReport />} />
+                <Route path="category" element={<Category />} />
+                <Route path="addCategory" element={<CategoryForm />} />
+                <Route path="addSubcategory" element={<SubCategoryForm />} />
+                <Route path="reports" element={<AdminOrdersPage />} />
+                <Route path="collection" element={<AdminCollection />} />
+                <Route path="operator" element={<Operator />} />
+                <Route path="change-password" element={<ChangePassword />} />
+              </Routes>
+            </CheckAuth>
+          } />
+        </Routes>
+      </div>
+      </ModalProvider>
+    </ThemeProvider>
   );
 }
 
 export default App;
-

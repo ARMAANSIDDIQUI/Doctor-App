@@ -599,12 +599,30 @@ const MonthlyReport = () => {
                                                 ) : ""}
                                             </td>
                                         ))}
-                                        <td className="py-3.5 px-4 text-rose-600 font-semibold">{order.discount ? `₹${order.discount}` : "—"}</td>
-                                        <td className="py-3.5 px-4 font-extrabold text-slate-900">₹{order.finalPayment || 0}</td>
-                                        <td className="py-3.5 px-4 font-semibold text-slate-600">₹{order.referralFee || 0}</td>
-                                        <td className="py-3.5 px-4 font-extrabold text-emerald-700 text-right">
-                                            ₹{(order.referralFee || 0) - (order.discount || 0)}
-                                        </td>
+                                         <td className="py-3.5 px-4 whitespace-nowrap">
+                                             {order.discount ? (
+                                                 <span className="inline-block px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold border border-rose-200/60 dark:border-rose-800/80 text-xs shadow-xs">
+                                                     ₹{order.discount}
+                                                 </span>
+                                             ) : (
+                                                 <span className="text-slate-400 text-xs">—</span>
+                                             )}
+                                         </td>
+                                         <td className="py-3.5 px-4 whitespace-nowrap">
+                                             <span className="inline-block px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-amber-950/60 text-indigo-700 dark:text-amber-400 font-extrabold border border-indigo-200/60 dark:border-amber-800/80 text-xs shadow-xs">
+                                                 ₹{order.finalPayment || 0}
+                                             </span>
+                                         </td>
+                                         <td className="py-3.5 px-4 whitespace-nowrap">
+                                             <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 text-xs shadow-xs">
+                                                 ₹{order.referralFee || 0}
+                                             </span>
+                                         </td>
+                                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                                             <span className="inline-block px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-extrabold border border-emerald-200/60 dark:border-emerald-800/80 text-xs shadow-xs">
+                                                 ₹{(order.referralFee || 0) - (order.discount || 0)}
+                                             </span>
+                                         </td>
                                     </tr>
                                 ))
                             )
