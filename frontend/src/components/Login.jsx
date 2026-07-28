@@ -55,10 +55,7 @@ const Login = () => {
             </div>
           </div>
 
-          <div className="relative z-10 pt-8 border-t border-white/20 flex items-center justify-between text-xs text-indigo-100">
-            <span>DoctorApp v1.0</span>
-            <span>Secure Enterprise Login</span>
-          </div>
+
         </div>
 
         {/* Right Side: Form */}
