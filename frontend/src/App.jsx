@@ -17,7 +17,7 @@ import SubCategoryForm from './components/SubCategoryForm';
 import PrintReport from './components/PrintReport';
 import Patient from './components/patients/Patient';
 import PatientForm from './components/patients/PatientForm';
-import AdminDashBoard from './components/admin/AdminDashBoard';
+import AdminDashBoard from './components/admin/AdminDashboard';
 import { checkAuth } from "./store/auth";
 import { useDispatch, useSelector } from "react-redux";
 import AdminLogin from './components/admin/AdminLogin';
