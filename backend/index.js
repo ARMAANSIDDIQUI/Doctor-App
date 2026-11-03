@@ -82,11 +82,9 @@ nodeSchedule.scheduleJob("55 23 28-31 * *", async () => {
   }
 });
 
-// Start the Server (for local development)
-if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, () => {
-    console.log(`Backend running on port ${PORT}`);
-  });
-}
+// Start the Server
+app.listen(PORT, () => {
+  console.log(`Backend running on port ${PORT}`);
+});
 
 module.exports = app;
