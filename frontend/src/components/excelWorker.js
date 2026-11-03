@@ -301,7 +301,7 @@ function getDetailedRow(order, categories, currentSerialNo) {
 
     const row = [
         currentSerialNo,
-        new Date(order.createdAt).toLocaleDateString('en-GB'),
+        new Date(order.createdAt).toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata' }),
         csvSafe(order.name || "Unknown"),
         csvSafe(doctor.name || "Unknown"),
         csvSafe(doctor.phoneNo || "N/A"),

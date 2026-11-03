@@ -1,3 +1,6 @@
+// Force Node runtime to use Indian Standard Time (IST) regardless of host server location
+process.env.TZ = "Asia/Kolkata";
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
