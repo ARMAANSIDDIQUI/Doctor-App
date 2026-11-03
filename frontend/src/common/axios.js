@@ -7,7 +7,12 @@ const getBaseUrl = (envUrl, fallback) => {
   return envUrl || fallback;
 };
 
-const getToken = () => localStorage.getItem("token") || localStorage.getItem("authToken");
+const getToken = () => {
+  if (typeof localStorage !== "undefined") {
+    return localStorage.getItem("token") || localStorage.getItem("authToken");
+  }
+  return null;
+};
 
 const api = axios.create({
   baseURL: getBaseUrl(import.meta.env.VITE_API_BASE_URL, "/api"),

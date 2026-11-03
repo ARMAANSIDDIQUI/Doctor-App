@@ -229,7 +229,8 @@ const MonthlyReport = () => {
         const worker = new Worker(new URL('./excelWorker.js', import.meta.url), { type: 'module' });
         const params = getDownloadParams();
         
-        worker.postMessage({ params, reportType, categories });
+        const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+        worker.postMessage({ params, reportType, categories, token });
 
         worker.onmessage = (event) => {
             const { status, data, fileName, message: workerMessage } = event.data;

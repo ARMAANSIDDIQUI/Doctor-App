@@ -1,7 +1,7 @@
 // // import * as XLSX from "xlsx";
 
 // // self.onmessage = async (event) => {
-// //     const { params, reportType, categories } = event.data;
+// //     const { params, reportType, categories, token } = event.data;
     
 // //     try {
 // //         const baseUrl = 'http://localhost:5000'; // Replace with your actual backend URL
@@ -175,7 +175,7 @@
 // // --- Main Worker Logic ---
 
 // self.onmessage = async (event) => {
-//     const { params, reportType, categories } = event.data;
+//     const { params, reportType, categories, token } = event.data;
 
 //     try {
 //         let page = 1;
@@ -357,7 +357,7 @@ function createGroupedCSV(grouped) {
 
 // --- Main Worker Logic ---
 self.onmessage = async (event) => {
-    const { params, reportType, categories } = event.data;
+    const { params, reportType, categories, token } = event.data;
     console.log(`Worker started for report: ${reportType} with params:`, params);
 
     try {
@@ -396,7 +396,8 @@ self.onmessage = async (event) => {
             const url = `/orders/filter?${queryParams.toString()}`;
 
             // --- Axios call instead of fetch ---
-            const { data } = await api.get(url);
+            const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+            const { data } = await api.get(url, config);
             
             const chunkOrders = data.orders || [];
             totalPages = data.totalPages || 1; // Get total pages from the API
