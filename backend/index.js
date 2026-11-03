@@ -7,6 +7,7 @@ const path = require("path");
 require("dotenv").config();
 // require("dotenv").config({ path: ".env.production" });
 const { generateExcelReport } = require("./controller/generateExcel");
+const { runStartupIntegrityCheck } = require("./startupCheck");
 
 // Importing Routes
 const patientRouter = require("./routes/patient-router");
@@ -24,10 +25,13 @@ const operatorRouter = require("./routes/operator-router");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// MongoDB Connection
+// MongoDB Connection with Startup Integrity Check
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => console.log("MongoDB connected"))
+  .then(async () => {
+    console.log("MongoDB connected");
+    await runStartupIntegrityCheck();
+  })
   .catch((error) => console.error("Error connecting to MongoDB:", error));
 
 // Middleware
@@ -57,15 +61,6 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
-// Handle non-API routes by serving the frontend
-// app.use("/*", (req, res) => {
-//   if (!req.originalUrl.startsWith("/api")) {
-//     res.sendFile(path.join(__dirname, "public", "index.html"));
-//   } else {
-//     res.status(404).json({ error: "API route not found" });
-//   }
-// });
-
 // Scheduled Job to Generate Excel Report on the Last Day of Each Month at 11:55 PM
 nodeSchedule.scheduleJob("55 23 28-31 * *", async () => {
   const now = new Date();
@@ -82,16 +77,6 @@ nodeSchedule.scheduleJob("55 23 28-31 * *", async () => {
   }
 });
 
-// nodeSchedule.scheduleJob(new Date(Date.now() + 1 * 60 * 1000), async () => {
-//   try {
-//     console.log("Generating Excel Report...");
-//     const filePath = await generateExcelReport();
-//     console.log("Excel Report Generated and Email Sent:", filePath);
-//   } catch (error) {
-//     console.error("Error during Excel Report Generation:", error);
-//   }
-// });
-
 // Start the Server (for local development)
 if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, () => {
@@ -100,4 +85,3 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 module.exports = app;
-

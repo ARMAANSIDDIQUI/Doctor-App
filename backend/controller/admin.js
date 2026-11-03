@@ -7,26 +7,30 @@ const AdminLogin = async (req, res) => {
     const username = req.body?.username || req.headers?.username;
     const password = req.body?.password || req.headers?.password;
 
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required' });
+    }
+
     try {
-        // Find the admin by username
         const admin = await Admin.findOne({ username });
 
         if (!admin) {
             return res.status(400).json({ message: 'Admin not found' });
         }
 
-        // Check if the password matches
         const isMatch = await bcrypt.compare(password, admin.password);
-
         if (!isMatch) {
             return res.status(400).json({ message: 'Invalid password' });
         }
 
-        // Generate JWT token with admin id
-        const token = jwt.sign({ admin, role: 'admin' }, "SECRET", { expiresIn: '1h' });
-        res.json({ message: 'Logged in successfully', token });
+        const token = jwt.sign(
+            { admin, role: 'admin' },
+            process.env.JWT_SECRET || 'SECRET',
+            { expiresIn: '24h' }
+        );
+        res.status(200).json({ message: 'Logged in successfully', token });
     } catch (error) {
-        console.error(error);
+        console.error('Error during admin login:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -44,23 +48,24 @@ const changeAdminPassword = async (req, res) => {
       return res.status(400).json({ message: "New password is required" });
     }
 
-    // Verify token and get admin ID
-    const decoded = jwt.verify(token, "SECRET");
-    const admin = await Admin.findById(decoded.admin._id);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "SECRET");
+    if (!decoded || !decoded.admin?._id) {
+      return res.status(401).json({ message: "Invalid admin token" });
+    }
 
+    const admin = await Admin.findById(decoded.admin._id);
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    // Hash new password and update directly without checking current password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     admin.password = hashedPassword;
     await admin.save();
 
-    res.json({ message: "Password updated successfully!" });
+    res.status(200).json({ message: "Password updated successfully!" });
   } catch (error) {
     console.error("Error changing password:", error);
-    res.status(500).json({ message: "Error changing password" });
+    res.status(500).json({ message: "Error changing password", error: error.message });
   }
 };
 

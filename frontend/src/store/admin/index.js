@@ -2,17 +2,18 @@ import { adminApi } from '@/common/axios';
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-  token: null,
+  token: localStorage.getItem('token') || null,
   loading: false,
   error: null,
 };
 
 const authSlice = createSlice({
-  name: 'auth',
+  name: 'adminLogin',
   initialState,
   reducers: {
     loginRequest: (state) => {
       state.loading = true;
+      state.error = null;
     },
     loginSuccess: (state, action) => {
       state.loading = false;
@@ -25,6 +26,10 @@ const authSlice = createSlice({
     },
     logout: (state) => {
       state.token = null;
+      state.error = null;
+      localStorage.removeItem('token');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userRole');
     },
   },
 });
@@ -32,24 +37,19 @@ const authSlice = createSlice({
 export const { loginRequest, loginSuccess, loginFailure, logout } = authSlice.actions;
 
 export const login = (username, password) => async (dispatch) => {
-  // alert(username)
   dispatch(loginRequest());
   try {
     const response = await adminApi.post('/login', {
-      username:username,
-      password:password
-    },{
-      headers: {
-          "Content-Type": "application/json",
-          "username": username,  // Send username as a header
-          "password": password  
-      }
-  });  // Assuming the login API is at '/api/admin/login'
-    const token = response.data.token;  // The token returned from the server
+      username,
+      password,
+    });
+    const token = response.data.token;
+    localStorage.setItem('token', token);
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('userRole', 'admin');
     dispatch(loginSuccess(token));
-    localStorage.setItem('token', token);  // Save token to localStorage
   } catch (error) {
-    dispatch(loginFailure(error.response?.data?.message || 'Something went wrong'));
+    dispatch(loginFailure(error.response?.data?.message || 'Invalid admin credentials'));
   }
 };
 

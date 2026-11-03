@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { login } from '../../store/admin';
+import { loginAdmin } from '../../store/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Shield, User, Lock, ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 
@@ -10,18 +10,21 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { token, loading, error } = useSelector((state) => state.adminLogin);
+  const { isAuthenticated, role, loading, error } = useSelector((state) => state.auth);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    dispatch(login(username, password));
+    const resultAction = await dispatch(loginAdmin({ username, password }));
+    if (loginAdmin.fulfilled.match(resultAction)) {
+      navigate('/admin/dashboard');
+    }
   };
 
   useEffect(() => {
-    if (token) {
+    if (isAuthenticated && role === 'admin') {
       navigate('/admin/dashboard');
     }
-  }, [token, navigate]);
+  }, [isAuthenticated, role, navigate]);
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-indigo-50/80 via-slate-50 to-blue-50/60 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4 sm:p-6 transition-colors">
@@ -53,35 +56,35 @@ const AdminLogin = () => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter admin username"
-                className="w-full pl-11 pr-4 py-3 bg-slate-50/50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-amber-500 focus:border-transparent transition-all text-sm"
                 required
+                placeholder="Enter admin username"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-xs"
               />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-2">
-              Password
+              Master Password
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-400">
                 <Lock className="h-5 w-5" />
               </div>
               <input
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-11 pr-11 py-3 bg-slate-50/50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-amber-500 focus:border-transparent transition-all text-sm"
                 required
+                placeholder="••••••••"
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-xs"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 transition-colors focus:outline-none"
               >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
@@ -89,20 +92,26 @@ const AdminLogin = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-amber-600 dark:to-amber-700 hover:from-indigo-700 hover:to-blue-700 dark:hover:from-amber-700 dark:hover:to-amber-800 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 dark:shadow-amber-500/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-amber-500 transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+            className="w-full mt-2 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-amber-600 dark:hover:bg-amber-700 text-white font-medium text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {loading ? 'Authenticating...' : 'Admin Sign In'}
-            {!loading && <ArrowRight className="h-4 w-4 text-white" />}
+            {loading ? (
+              <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                <span>Sign In as Admin</span>
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700 text-center">
+        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700/80 text-center">
           <Link
             to="/login"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-amber-400 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-amber-400 transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Operator Login
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Return to Operator Portal</span>
           </Link>
         </div>
       </div>

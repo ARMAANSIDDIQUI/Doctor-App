@@ -1,44 +1,50 @@
 const Patient = require("../Model/patient");
 const DoctorDB = require("../Model/Doctor");
-const Order = require('../Model/Order');
+const Order = require("../Model/Order");
+const mongoose = require("mongoose");
 
 const AddPatient = async (req, res) => {
   const { name, age, gender, address, phoneNo } = req.body;
   try {
+    if (!name || !phoneNo) {
+      return res.status(400).json({
+        success: false,
+        message: "Name and phone number are required",
+      });
+    }
+
     const newPatient = new Patient({
-      name, age, gender, address, phoneNo
+      name,
+      age,
+      gender,
+      address,
+      phoneNo,
     });
     await newPatient.save();
 
     res.status(200).json({
       success: true,
       message: "Patient Registrated successful",
+      patient: newPatient,
     });
   } catch (e) {
-    console.log(e);
+    console.error("Error adding patient:", e);
     res.status(500).json({
       success: false,
       message: "Some error occured",
     });
   }
-}
- 
+};
+
 const UpdatePatient = async (req, res) => {
-  const { patientId } = req.params; // Extract patient ID from the URL parameters
+  const { patientId } = req.params;
   const { name, age, gender, address, phoneNo } = req.body;
 
   try {
-    // Example: Update the patient data in a database (assuming MongoDB as an example)
     const updatedPatient = await Patient.findByIdAndUpdate(
       patientId,
-      {
-        name,
-        age,
-        gender,
-        address,
-        phoneNo,
-      },
-      { new: true } // Returns the updated document
+      { name, age, gender, address, phoneNo },
+      { new: true, runValidators: true }
     );
 
     if (!updatedPatient) {
@@ -59,7 +65,6 @@ const getPatientById = async (req, res) => {
   const { patientId } = req.params;
 
   try {
-    // Fetch patient data by ID (assuming MongoDB as an example)
     const patient = await Patient.findById(patientId);
 
     if (!patient) {
@@ -78,16 +83,11 @@ const getPatientById = async (req, res) => {
 
 const getAllPatients = async (req, res) => {
   try {
-    // Fetch all patient data
-    const patients = await Patient.find();
-
-    if (!patients || patients.length === 0) {
-      return res.status(404).json({ message: "No patients found" });
-    }
+    const patients = await Patient.find().sort({ createdAt: -1 });
 
     res.status(200).json({
       message: "Patients retrieved successfully",
-      patients,
+      patients: patients || [],
     });
   } catch (error) {
     console.error("Error retrieving patients data:", error);
@@ -95,121 +95,105 @@ const getAllPatients = async (req, res) => {
   }
 };
 
-
 const getPatientsByPhone = async (req, res) => {
-
   const { phoneNo } = req.query;
   try {
-    const patients = await Patient.find({ phoneNo: phoneNo });
-    res.status(200).json({ patients });
+    const patients = await Patient.find({ phoneNo });
+    res.status(200).json({ patients: patients || [] });
   } catch (error) {
-    console.log(error)
-    res.status(500).json({ message: "Error fetching patients", error });
+    console.error("Error fetching patients by phone:", error);
+    res.status(500).json({ message: "Error fetching patients", error: error.message });
   }
-
-
-}
+};
 
 const checkPatientisNewByPhone = async (req, res) => {
-    const { phoneNo } = req.query; // Extract phone number from query
-  
-    if (!phoneNo) {
-      return res.status(400).json({ error: 'Phone number is required' });
+  const { phoneNo } = req.query;
+
+  if (!phoneNo) {
+    return res.status(400).json({ error: "Phone number is required" });
+  }
+
+  try {
+    const patient = await Patient.findOne({ phoneNo });
+
+    if (patient) {
+      return res.status(200).json({ message: "Patient exists", isNew: false, patient });
+    } else {
+      return res.status(200).json({ message: "Patient is new", isNew: true });
     }
-  
-    try {
-      // Check if a patient with the provided phone number exists in the database
-      const patient = await Patient.findOne({ phoneNo });
-  
-      if (patient) {
-        // If patient is found, it means the patient is not new
-        return res.status(200).json({ message: 'Patient exists', isNew: false });
-      } else {
-        // If patient is not found, the patient is new
-        return res.status(200).json({ message: 'Patient is new', isNew: true });
-      }
-    } catch (error) {
-      console.error('Error checking patient by phone:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+  } catch (error) {
+    console.error("Error checking patient by phone:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const getPatientsByDoctorAndDate = async (req, res) => {
+  const { doctorId, startDate, endDate } = req.query;
+
+  try {
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: "Missing required parameters." });
     }
-  };
-  
 
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
 
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
 
-  const getPatientsByDoctorAndDate = async (req, res) => {
-    const { doctorId, startDate, endDate } = req.query;
-  
-    try {
-      // Validate request parameters
-      if (!startDate || !endDate) {
-        return res.status(400).json({ message: "Missing required parameters." });
+    let doctorMatch;
+
+    if (doctorId === "0" || String(doctorId).toLowerCase() === "none") {
+      const noneDoc = await DoctorDB.findOne({ name: /^None$/i });
+      const noneMatches = [0, "0", "none"];
+      if (noneDoc) {
+        noneMatches.push(noneDoc._id, String(noneDoc._id));
       }
-  
-      // Convert startDate and endDate to Date objects
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-  
-      let patients;
-  
-      if (doctorId === "0") {
-        // Fetch patients where referredBy is 0
-        patients = await Order.find({
-          referredBy: 0,
-          createdAt: { $gte: start, $lte: end },
-        });
-      } else {
-        // Fetch patients referred by the specific doctor within the date range
-        patients = await Order.find({
-          referredBy: doctorId, // Assuming `referredBy` stores the doctor ID in the Order model
-          createdAt: { $gte: start, $lte: end },
-        });
+      doctorMatch = { $in: noneMatches };
+    } else {
+      const matches = [doctorId, String(doctorId)];
+      if (mongoose.Types.ObjectId.isValid(doctorId)) {
+        matches.push(new mongoose.Types.ObjectId(doctorId));
       }
-  
-      // If no patients found
-      if (!patients.length) {
-        return res.status(404).json({ message: "No patients found for the specified criteria." });
-      }
-  
-      // Send the array of patients
-      res.status(200).json({ patients });
-    } catch (error) {
-      console.error("Error fetching patients:", error);
-      res.status(500).json({ message: "Error fetching patients", error });
+      doctorMatch = { $in: matches };
     }
-  };
 
-// Added New Controller for patient count-Armaan Siddiqui
-/**
- * @description: Fetches the total count of patients.
- * @param {object} req - The request object.
- * @param {object} res - The response object.
- * @returns {object} - JSON response containing the total patient count.
- */
+    const patients = await Order.find({
+      referredBy: doctorMatch,
+      createdAt: { $gte: start, $lte: end },
+    }).populate("referredBy").sort({ createdAt: -1 });
+
+    res.status(200).json({ patients: patients || [] });
+  } catch (error) {
+    console.error("Error fetching patients:", error);
+    res.status(500).json({ message: "Error fetching patients", error: error.message });
+  }
+};
+
 const getTotalPatientsCount = async (req, res) => {
   try {
     const totalPatients = await Patient.countDocuments();
 
     res.status(200).json({
-      message: 'Total patient count fetched successfully.',
+      message: "Total patient count fetched successfully.",
       totalPatients: totalPatients,
     });
   } catch (error) {
-    console.error('Error fetching total patient count:', error);
+    console.error("Error fetching total patient count:", error);
     res.status(500).json({
-      message: 'Error fetching total patient count.',
+      message: "Error fetching total patient count.",
       error: error.message,
     });
   }
 };
-  
+
 module.exports = {
   AddPatient,
   UpdatePatient,
   getPatientById,
   getAllPatients,
   getPatientsByPhone,
-  getPatientsByDoctorAndDate, // Add the new API here
+  getPatientsByDoctorAndDate,
   checkPatientisNewByPhone,
-  getTotalPatientsCount
+  getTotalPatientsCount,
 };
