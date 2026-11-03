@@ -45,7 +45,14 @@ mongoose
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors());
+// CORS configuration (Allows Cloudflare Pages, local development, and custom domains)
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 // Serve static files from the "public" folder
 app.use(express.static(path.join(__dirname, "public")));
