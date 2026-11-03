@@ -25,9 +25,14 @@ const operatorRouter = require("./routes/operator-router");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// MongoDB Connection with Startup Integrity Check
+// MongoDB Connection with Startup Integrity Check & Automatic Casing Normalization
+let mongoUri = (process.env.MONGODB_URI || "").trim();
+if (/\/Doctorapplication(\?|$)/i.test(mongoUri)) {
+  mongoUri = mongoUri.replace(/\/Doctorapplication(\?|$)/i, "/DoctorApplication$1");
+}
+
 mongoose
-  .connect(process.env.MONGODB_URI)
+  .connect(mongoUri)
   .then(async () => {
     console.log("MongoDB connected");
     await runStartupIntegrityCheck();
