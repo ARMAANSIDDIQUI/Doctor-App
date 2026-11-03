@@ -26,9 +26,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // MongoDB Connection with Startup Integrity Check & Automatic Casing Normalization
-let mongoUri = (process.env.MONGODB_URI || "").trim();
-if (/\/Doctorapplication(\?|$)/i.test(mongoUri)) {
-  mongoUri = mongoUri.replace(/\/Doctorapplication(\?|$)/i, "/DoctorApplication$1");
+let mongoUri = (process.env.MONGODB_URI || "").trim().replace(/^["']|["']$/g, "");
+if (/\/doctorapp(\?|$)/i.test(mongoUri)) {
+  mongoUri = mongoUri.replace(/\/doctorapp(\?|$)/i, "/DoctorApp$1");
+} else if (/\/doctorapplication(\?|$)/i.test(mongoUri)) {
+  mongoUri = mongoUri.replace(/\/doctorapplication(\?|$)/i, "/DoctorApplication$1");
 }
 
 mongoose
