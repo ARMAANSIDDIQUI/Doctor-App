@@ -44,6 +44,11 @@ app.use(cors());
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.static(path.join(__dirname, "dist")));
 
+// Health check endpoint for monitoring and keep-alive
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 // API Routes
 app.use("/api/", patientRouter);
 app.use("/api/", doctorRouter);

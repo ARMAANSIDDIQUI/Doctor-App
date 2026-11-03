@@ -21,10 +21,11 @@ const OpLogin = async (req, res) => {
             return res.status(400).json({ message: 'Invalid password' });
         }
 
+        // Operator token valid for 15 hours
         const token = jwt.sign(
             { operator, role: 'operator' },
             process.env.JWT_SECRET || "SECRET",
-            { expiresIn: '24h' }
+            { expiresIn: '15h' }
         );
         res.status(200).json({ message: 'Logged in successfully', token });
     } catch (error) {

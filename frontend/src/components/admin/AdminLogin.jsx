@@ -30,10 +30,10 @@ const AdminLogin = () => {
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-indigo-50/80 via-slate-50 to-blue-50/60 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4 sm:p-6 transition-colors">
       <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-2xl p-8 sm:p-10 transition-colors">
         <div className="flex flex-col items-center text-center mb-8">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-600 dark:from-amber-600 dark:to-amber-700 p-3 text-white shadow-xl shadow-indigo-500/25 dark:shadow-amber-500/20 flex items-center justify-center mb-4">
-            <Shield className="h-8 w-8 text-white" />
+          <div className="h-16 w-16 rounded-2xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 p-2 shadow-lg flex items-center justify-center mb-4 overflow-hidden">
+            <img src="/logo.png" alt="Delight Diagnostics Logo" className="h-full w-full object-contain" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Admin Portal Login</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Delight Diagnostics Admin</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Management authentication required</p>
         </div>
 

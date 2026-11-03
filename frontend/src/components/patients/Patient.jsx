@@ -80,7 +80,15 @@ const Patient = () => {
         <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200/80 dark:border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none">
           
           <div className="text-center mb-6">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
+            <div className="flex justify-center mb-4">
+              <div className="h-16 w-16 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-2 shadow-sm flex items-center justify-center overflow-hidden">
+                <img src="/logo.png" alt="Delight Diagnostics Logo" className="h-full w-full object-contain" />
+              </div>
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-amber-400 bg-indigo-50 dark:bg-amber-950/60 px-3 py-1 rounded-full border border-indigo-200/60 dark:border-amber-800/60">
+              Delight Diagnostics
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight mt-2">
               Search Patient
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">

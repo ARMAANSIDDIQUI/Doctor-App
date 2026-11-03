@@ -30,10 +30,10 @@ const Login = () => {
 
           <div className="relative z-10">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-md p-2 text-white shadow-md flex items-center justify-center border border-white/20">
-                <Stethoscope className="h-6 w-6 text-white" />
+              <div className="h-12 w-12 rounded-xl bg-white p-1.5 shadow-md flex items-center justify-center">
+                <img src="/logo.png" alt="Delight Diagnostics Logo" className="h-full w-full object-contain" />
               </div>
-              <span className="font-bold text-xl text-white tracking-tight">DoctorApp</span>
+              <span className="font-bold text-xl text-white tracking-tight">Delight Diagnostics</span>
             </div>
 
             <div className="mt-12 space-y-4">
@@ -41,13 +41,13 @@ const Login = () => {
                 Operator Portal
               </h2>
               <p className="text-indigo-100 dark:text-amber-100 text-sm leading-relaxed">
-                Log in to manage billing records, patient reports, ultrasound transactions, and doctor commission reports efficiently.
+                Log in to manage billing records, patient reports, scan transactions, and doctor commission reports efficiently.
               </p>
             </div>
           </div>
 
           <div className="relative z-10 pt-8 border-t border-white/10 text-xs text-indigo-100 dark:text-amber-100/90 flex items-center justify-between">
-            <span>Billing & Diagnostics System</span>
+            <span>Delight Diagnostics Center</span>
             <span className="flex items-center gap-1.5 font-semibold">
               <ShieldCheck className="h-4 w-4" /> Secure Session
             </span>
@@ -57,8 +57,8 @@ const Login = () => {
         {/* Right Side: Form */}
         <div className="p-8 sm:p-10 flex flex-col justify-center">
           <div className="flex flex-col items-center text-center mb-8">
-            <div className="md:hidden h-12 w-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center mb-3 shadow-md">
-              <Stethoscope className="h-6 w-6" />
+            <div className="md:hidden h-14 w-14 rounded-2xl bg-white border border-slate-200 dark:border-slate-700 p-1.5 flex items-center justify-center mb-3 shadow-md">
+              <img src="/logo.png" alt="Delight Diagnostics Logo" className="h-full w-full object-contain" />
             </div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Welcome Back</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Please enter your operator credentials to continue</p>

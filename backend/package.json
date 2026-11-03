@@ -19,7 +19,7 @@
   },
   "name": "backend",
   "version": "1.0.0",
-  "description": "Ultrasound Company Billing System",
+  "description": "Delight Diagnostics Billing & Reporting System",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

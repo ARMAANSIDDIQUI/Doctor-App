@@ -76,8 +76,8 @@ const sendEmailWithAttachment = async (filePath) => {
     const mailOptions = {
       from: "gozoomtechnologies@gmail.com", // Sender address
       to: "gozoomtechnologies@gmail.com", // Recipient email
-      subject: "Doctor Commissions Report",
-      text: "Please find the attached Doctor Commissions Report.",
+      subject: "Delight Diagnostics - Doctor Commissions Report",
+      text: "Please find the attached Delight Diagnostics Doctor Commissions Report.",
       attachments: [
         {
           filename: "Doctor_Commissions_Report.xlsx",
@@ -97,3 +97,4 @@ const sendEmailWithAttachment = async (filePath) => {
 module.exports = {
   generateExcelReport,
 };
+

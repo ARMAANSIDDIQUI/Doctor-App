@@ -397,7 +397,7 @@ const PatientForm = () => {
         {/* Left Hero Card */}
         <div className="lg:col-span-4 bg-white rounded-3xl border border-slate-200/80 p-8 shadow-sm text-center flex flex-col items-center justify-center space-y-6">
           <div className="h-20 w-20 rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
-            <img src="/p2.svg" alt="Patient Registration" className="w-12 h-12" />
+            <img src="/logo.png" alt="Patient Registration" className="w-16 h-16 object-contain" />
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Delight Diagnostics</h1>
@@ -906,3 +906,4 @@ const PatientForm = () => {
 };
 
 export default PatientForm;
+

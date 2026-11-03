@@ -23,10 +23,11 @@ const AdminLogin = async (req, res) => {
             return res.status(400).json({ message: 'Invalid password' });
         }
 
+        // Admin token valid for 1 hour
         const token = jwt.sign(
             { admin, role: 'admin' },
             process.env.JWT_SECRET || 'SECRET',
-            { expiresIn: '24h' }
+            { expiresIn: '1h' }
         );
         res.status(200).json({ message: 'Logged in successfully', token });
     } catch (error) {

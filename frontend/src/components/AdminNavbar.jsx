@@ -41,8 +41,8 @@ const AdminNavbar = () => {
           {/* Brand Logo */}
           <div className="flex items-center space-x-3">
             <Link to="/admin/dashboard" className="flex items-center gap-2.5 group">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 p-2 text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform flex items-center justify-center">
-                <Shield className="h-6 w-6" />
+              <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700 shadow-sm group-hover:scale-105 transition-transform flex items-center justify-center overflow-hidden">
+                <img src="/logo.png" alt="Delight Diagnostics Logo" className="h-8 w-8 object-contain" />
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-lg text-slate-900 dark:text-slate-100 tracking-tight leading-none group-hover:text-indigo-600 transition-colors">
